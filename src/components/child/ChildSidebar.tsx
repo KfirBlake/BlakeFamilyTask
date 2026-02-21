@@ -5,8 +5,17 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, CalendarDays, Gift, User } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-export default function ChildSidebar() {
+interface ChildSidebarProps {
+    family?: {
+        name: string
+        image_url?: string | null
+    }
+}
+
+export default function ChildSidebar({ family }: ChildSidebarProps) {
     const pathname = usePathname()
+    const familyName = family?.name || 'FamilyTask'
+    const familyImage = family?.image_url
 
     const navItems = [
         {
@@ -41,11 +50,17 @@ export default function ChildSidebar() {
 
     return (
         <aside className="hidden md:flex flex-col w-64 bg-white border-l border-gray-200 h-screen sticky top-0 p-6">
-            <div className="flex items-center gap-3 mb-10 px-2">
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl">
-                    FT
-                </div>
-                <span className="text-2xl font-black text-gray-800 tracking-tight">FamilyTask</span>
+            <div className="flex flex-col items-center gap-4 mb-10 px-2 text-center">
+                {familyImage ? (
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-sm border-2 border-indigo-50">
+                        <img src={familyImage} alt={familyName} className="w-full h-full object-cover" />
+                    </div>
+                ) : (
+                    <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-3xl shadow-sm">
+                        FT
+                    </div>
+                )}
+                <span className="text-2xl font-black text-gray-800 tracking-tight">{familyName}</span>
             </div>
 
             <nav className="space-y-4 flex-1">

@@ -240,36 +240,32 @@ declare
 begin
   select price into item_price from public.rewards_store where id = new.reward_id;
   select stars_balance into child_balance from public.profiles where id = new.created_by;
-  
   if child_balance < item_price then
-    raise exception 'Insufficient stars balance';
+    raise exception 'אין מספיק כוכבים!';
   end if;
-  
-  update public.profiles 
-  set stars_balance = stars_balance - item_price
-  where id = new.created_by;
-  
+  update public.profiles set stars_balance = stars_balance - item_price where id = new.created_by;
   return new;
 end;
 $$ language plpgsql security definer;
 
-create trigger on_reward_redemption
-  before insert on public.rewards_redemptions
-  for each row execute procedure public.handle_reward_redemption();
+create trigger on_reward_redemption before insert on public.rewards_redemptions
+for each row execute procedure public.handle_reward_redemption();
 
 -- Add stars on task approval
+create trigger on_reward_redemption before insert on public.rewards_redemptions
+for each row execute procedure public.handle_reward_redemption();
+
+-- פונקציה: הוספת כוכבים בעת אישור משימה
 create or replace function public.handle_task_approval()
 returns trigger as $$
 begin
   if new.status = 'approved' and old.status != 'approved' then
-    update public.profiles
-    set stars_balance = stars_balance + new.stars_value
+    update public.profiles set stars_balance = stars_balance + new.stars_value
     where id = new.assigned_to;
   end if;
   return new;
 end;
 $$ language plpgsql security definer;
 
-create trigger on_task_approval
-  after update on public.tasks
-  for each row execute procedure public.handle_task_approval();
+create trigger on_task_approval after update on public.tasks
+for each row execute procedure public.handle_task_approval();

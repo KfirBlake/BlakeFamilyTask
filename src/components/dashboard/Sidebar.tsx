@@ -17,12 +17,15 @@ import {
 import { signout } from '@/app/login/actions'
 import clsx from 'clsx'
 
-const navigation = [
+import { Settings } from 'lucide-react'
+
+const baseNavigation = [
     { name: 'לוח בקרה', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'ניהול משפחה', href: '/dashboard/family', icon: Users },
+    { name: 'בני משפחה', href: '/dashboard/family', icon: Users },
     { name: 'משימות', href: '/dashboard/tasks', icon: CheckSquare },
     { name: 'אישורים', href: '/dashboard/approvals', icon: Star },
     { name: 'חנות פרסים', href: '/dashboard/rewards', icon: Gift },
+    { name: 'פרופיל', href: '/dashboard/profile', icon: UserCircle },
 ]
 
 type Props = {
@@ -30,12 +33,24 @@ type Props = {
     userProfile?: {
         full_name: string | null
         role: string
+        family?: {
+            name: string
+            image_url?: string | null
+        } | null
     } | null
 }
 
 export default function DashboardSidebar({ children, userProfile }: Props) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
+    // Extract family data safely
+    const familyName = userProfile?.family?.name || 'FamilyTask'
+    const familyImage = userProfile?.family?.image_url
+
+    const navigation = [...baseNavigation]
+    if (userProfile?.role === 'admin_parent') {
+        navigation.push({ name: 'הגדרות משפחה', href: '/dashboard/admin/family', icon: Settings })
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
@@ -53,11 +68,17 @@ export default function DashboardSidebar({ children, userProfile }: Props) {
                 sidebarOpen ? "translate-x-0" : "translate-x-full"
             )}>
                 <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <Link href="/dashboard" className="flex items-center gap-2">
-                        <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-                            <Star size={20} fill="currentColor" />
-                        </div>
-                        <span className="text-xl font-bold text-gray-900">FamilyTask</span>
+                    <Link href="/dashboard" className="flex items-center gap-3">
+                        {familyImage ? (
+                            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+                                <img src={familyImage} alt="Logo" className="object-cover w-full h-full" />
+                            </div>
+                        ) : (
+                            <div className="bg-indigo-600 p-1.5 rounded-lg text-white flex-shrink-0">
+                                <Star size={20} fill="currentColor" />
+                            </div>
+                        )}
+                        <span className="text-xl font-bold text-gray-900 truncate">{familyName}</span>
                     </Link>
                     <button
                         type="button"

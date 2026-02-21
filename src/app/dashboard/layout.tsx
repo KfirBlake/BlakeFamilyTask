@@ -15,11 +15,14 @@ export default async function DashboardLayout({
     if (user) {
         const { data } = await (await supabase)
             .from('profiles')
-            .select('full_name, role')
+            .select('full_name, role, families(name, image_url)')
             .eq('id', user.id)
             .single()
 
-        userProfile = data
+        userProfile = {
+            ...data,
+            family: data?.families
+        } as any
 
         if (userProfile?.role === 'child') {
             redirect('/child/dashboard')

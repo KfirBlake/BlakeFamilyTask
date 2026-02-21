@@ -22,7 +22,7 @@ export default async function ChildLayout({
 
     const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, families(name, image_url)')
         .eq('id', user.id)
         .single()
 
@@ -30,10 +30,12 @@ export default async function ChildLayout({
         redirect('/dashboard')
     }
 
+    const family = profile.families as any
+
     return (
         <div className="flex min-h-screen bg-gray-50 font-sans" dir="rtl">
             {/* Desktop Sidebar */}
-            <ChildSidebar />
+            <ChildSidebar family={family} />
 
             <div className="flex-1 flex flex-col pb-24 md:pb-0">
                 {/* Mobile Top Bar */}
