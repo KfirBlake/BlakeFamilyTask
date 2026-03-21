@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import AvatarUpload from '@/components/profile/AvatarUpload'
 import ProfileForm from '@/components/profile/ProfileForm'
+import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import { UserCircle } from 'lucide-react'
 
 export default function ParentProfilePage() {
@@ -79,8 +80,9 @@ export default function ParentProfilePage() {
                     </div>
 
                     {/* Main Form Column */}
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 space-y-12">
                         <ProfileForm initialData={profile} />
+                        <UserPreferencesForm />
                     </div>
                 </div>
             </div>

@@ -9,7 +9,7 @@ export default async function ChildCalendarPage() {
     if (!user) redirect('/login')
 
     return (
-        <div className="max-w-4xl mx-auto">
+        <div className="space-y-6">
             <h1 className="text-3xl font-black text-gray-900 mb-6 hidden md:block">היומן שלי 📅</h1>
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                 <WeeklyChildTaskCalendar

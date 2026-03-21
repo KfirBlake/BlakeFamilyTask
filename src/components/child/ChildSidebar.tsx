@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CalendarDays, Gift, User } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { LayoutDashboard, CalendarDays, Gift, User } from 'lucide-react'
+import FamilyMessageNode from '../dashboard/FamilyMessageNode'
 
 interface ChildSidebarProps {
     family?: {
@@ -63,6 +64,8 @@ export default function ChildSidebar({ family }: ChildSidebarProps) {
                 <span className="text-2xl font-black text-gray-800 tracking-tight">{familyName}</span>
             </div>
 
+            <FamilyMessageNode />
+
             <nav className="space-y-4 flex-1">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href
@@ -93,6 +96,6 @@ export default function ChildSidebar({ family }: ChildSidebarProps) {
                     )
                 })}
             </nav>
-        </aside>
+        </aside >
     )
 }

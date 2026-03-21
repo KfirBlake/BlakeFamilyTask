@@ -12,19 +12,25 @@ import {
     Menu,
     X,
     LogOut,
-    UserCircle
+    UserCircle,
+    MessageSquare,
+    Clock,
+    History
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import clsx from 'clsx'
 
 import { Settings } from 'lucide-react'
+import FamilyMessageNode from './FamilyMessageNode'
 
 const baseNavigation = [
-    { name: 'לוח בקרה', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'בני משפחה', href: '/dashboard/family', icon: Users },
     { name: 'משימות', href: '/dashboard/tasks', icon: CheckSquare },
     { name: 'אישורים', href: '/dashboard/approvals', icon: Star },
+    { name: 'לוח הודעות', href: '/dashboard/messages', icon: MessageSquare },
+    { name: 'בני משפחה', href: '/dashboard/family', icon: Users },
     { name: 'חנות פרסים', href: '/dashboard/rewards', icon: Gift },
+    { name: 'מתנות ממתינות', href: '/dashboard/rewards/pending', icon: Clock },
+    { name: 'היסטוריית מתנות', href: '/dashboard/rewards/history', icon: History },
     { name: 'פרופיל', href: '/dashboard/profile', icon: UserCircle },
 ]
 
@@ -88,6 +94,8 @@ export default function DashboardSidebar({ children, userProfile }: Props) {
                         <X size={24} />
                     </button>
                 </div>
+
+                <FamilyMessageNode />
 
                 {/* User Info Section */}
                 {userProfile && (

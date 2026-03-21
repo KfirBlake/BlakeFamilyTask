@@ -5,6 +5,9 @@ import { Check, Star, Clock } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import SwipeToComplete from './SwipeToComplete'
+import IconRenderer from '../ui/IconRenderer'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Task = {
     id: string
@@ -24,21 +27,28 @@ type Props = {
 export default function ChildTaskCard({ task, onUpdate }: Props) {
     const [loading, setLoading] = useState(false)
     const supabase = createClient()
+    const { preferences } = useUserPreferences()
 
     async function handleComplete() {
         if (task.status !== 'pending') return
         setLoading(true)
 
-        // Optimistic confetti
-        confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-        })
+        // Optimistic confetti explosion
+        if (preferences.settings_confetti) {
+            confetti({
+                particleCount: 150,
+                spread: 100,
+                origin: { y: 0.5 },
+                colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+            })
+        }
 
         const { error } = await supabase
             .from('tasks')
-            .update({ status: 'waiting_approval' })
+            .update({
+                status: 'waiting_approval',
+                completed_at: new Date().toISOString()
+            })
             .eq('id', task.id)
 
         if (!error) {
@@ -65,8 +75,8 @@ export default function ChildTaskCard({ task, onUpdate }: Props) {
         >
             <div>
                 <div className="flex justify-between items-start mb-4">
-                    <div className="bg-indigo-50 w-20 h-20 rounded-2xl flex items-center justify-center text-5xl shadow-sm border-2 border-indigo-100">
-                        {task.icon_key || '📝'}
+                    <div className="bg-indigo-50 w-20 h-20 rounded-2xl flex items-center justify-center text-5xl shadow-sm border-2 border-indigo-100 overflow-hidden p-2">
+                        <IconRenderer iconKey={task.icon_key} className="w-full h-full text-5xl flex items-center justify-center object-cover" />
                     </div>
                     <div className="flex items-center gap-1 bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full text-base font-black border-2 border-white shadow-sm transform -rotate-2">
                         +{task.stars_value} <Star size={16} className="fill-yellow-100 text-yellow-900" />
@@ -78,20 +88,7 @@ export default function ChildTaskCard({ task, onUpdate }: Props) {
             </div>
 
             {isPending && (
-                <button
-                    onClick={handleComplete}
-                    disabled={loading}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xl py-5 rounded-2xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-3 mt-4"
-                >
-                    {loading ? (
-                        <span className="animate-spin w-6 h-6 border-4 border-white/30 border-t-white rounded-full" />
-                    ) : (
-                        <>
-                            <Check size={28} strokeWidth={3} />
-                            בוצע!
-                        </>
-                    )}
-                </button>
+                <SwipeToComplete onComplete={handleComplete} loading={loading} />
             )}
 
             {isWaiting && (

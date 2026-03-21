@@ -5,6 +5,8 @@ import { createClient } from '@/utils/supabase/client'
 import { Star, Gift, ShoppingBag, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
+import IconRenderer from '@/components/ui/IconRenderer'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Reward = {
     id: string
@@ -14,14 +16,29 @@ type Reward = {
     icon_key: string
 }
 
+type RewardPurchase = {
+    id: string
+    status: 'pending' | 'redeemed'
+    purchased_at: string
+    redeemed_at: string | null
+    rewards_store: {
+        id: string
+        name: string
+        icon_key: string
+        description: string | null
+    }
+}
+
 export default function ChildRewardsPage() {
     const [rewards, setRewards] = useState<Reward[]>([])
+    const [purchases, setPurchases] = useState<RewardPurchase[]>([])
     const [balance, setBalance] = useState(0)
     const [childName, setChildName] = useState('')
     const [loading, setLoading] = useState(true)
     const [redeemingId, setRedeemingId] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
+    const { preferences } = useUserPreferences()
 
     const supabase = createClient()
 
@@ -53,6 +70,27 @@ export default function ChildRewardsPage() {
                     .order('price', { ascending: true })
 
                 setRewards(rewardsData || [])
+
+                // Fetch Purchases
+                const { data: purchasesData } = await supabase
+                    .from('reward_purchases')
+                    .select(`
+                        id,
+                        status,
+                        purchased_at,
+                        redeemed_at,
+                        rewards_store:reward_id (
+                            id,
+                            name,
+                            icon_key,
+                            description
+                        )
+                    `)
+                    .eq('child_id', user.id)
+                    .order('purchased_at', { ascending: false })
+
+                // Supabase joins can return arrays or objects. Safe casting:
+                setPurchases((purchasesData as unknown as RewardPurchase[]) || [])
             }
         }
         setLoading(false)
@@ -72,17 +110,31 @@ export default function ChildRewardsPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        // 1. Get family_id again or store it in state. Let's fetch context safely.
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
+        // 2. Extract context
+        const { data: profile } = await supabase.from('profiles').select('family_id, stars_balance').eq('id', user.id).single()
         if (!profile) return
 
-        // 2. Insert Redemption
+        // 3. Ensure they actually have enough balance in DB
+        if (profile.stars_balance < reward.price) {
+            setError('אין מספיק כוכבים... נסה לבצע עוד משימות! 💪')
+            setRedeemingId(null)
+            return
+        }
+
+        // 4. Update Profile Balance explicitly
+        await supabase
+            .from('profiles')
+            .update({ stars_balance: profile.stars_balance - reward.price })
+            .eq('id', user.id)
+
+        // 5. Insert Redemption into new architecture
         const { error: redeemError } = await supabase
-            .from('rewards_redemptions')
+            .from('reward_purchases')
             .insert({
+                child_id: user.id,
+                reward_id: reward.id,
                 family_id: profile.family_id,
-                created_by: user.id,
-                reward_id: reward.id
+                status: 'pending'
             })
 
         if (redeemError) {
@@ -92,12 +144,15 @@ export default function ChildRewardsPage() {
             // Success!
             setBalance(prev => prev - reward.price) // Optimistic update
             setSuccessMsg(`תהנה! הזמנת את ${reward.name}`)
-            confetti({
-                particleCount: 150,
-                spread: 70,
-                origin: { y: 0.6 },
-                colors: ['#FFD700', '#FFA500', '#FF4500']
-            })
+
+            if (preferences.settings_confetti) {
+                confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#FFD700', '#FFA500', '#FF4500']
+                })
+            }
 
             // Re-fetch to ensure sync
             fetchData()
@@ -171,13 +226,18 @@ export default function ChildRewardsPage() {
                                     ${canAfford ? 'bg-white border-indigo-100 shadow-lg' : 'bg-gray-100 border-gray-200 opacity-80 grayscale-[0.5]'}
                                 `}
                             >
-                                <div className="text-4xl mb-3 transform hover:scale-110 transition-transform cursor-default">
-                                    {reward.icon_key || '🎁'}
+                                <div className="w-12 h-12 mb-4 transform hover:scale-110 transition-transform cursor-default flex items-center justify-center text-4xl">
+                                    <IconRenderer iconKey={reward.icon_key || '🎁'} className="w-full h-full object-cover" size={40} />
                                 </div>
                                 <h3 className="font-bold text-gray-900 text-center mb-1 leading-tight">{reward.name}</h3>
                                 <div className="text-xs text-gray-500 text-center mb-4 line-clamp-2 h-8 px-1">
                                     {reward.description}
                                 </div>
+                                {!canAfford && (
+                                    <div className="text-xs text-red-500 text-center mb-4">
+                                        חסרים לך {reward.price - balance} כוכבים
+                                    </div>
+                                )}
 
                                 <button
                                     onClick={() => handleRedeem(reward)}
@@ -208,6 +268,59 @@ export default function ChildRewardsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Invetory: My Rewards Section */}
+            {purchases.length > 0 && (
+                <div className="mt-16">
+                    <h2 className="text-2xl font-black text-gray-900 mb-6">המתנות שלי 🎁</h2>
+
+                    {/* Pending Items */}
+                    {purchases.filter(p => p.status === 'pending').length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-lg font-bold text-indigo-600 mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                                ממתין למימוש
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {purchases.filter(p => p.status === 'pending').map(purchase => (
+                                    <div key={purchase.id} className="bg-white border-2 border-indigo-100 p-4 rounded-2xl shadow-sm flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0 text-3xl">
+                                            <IconRenderer iconKey={purchase.rewards_store?.icon_key || '🎁'} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-gray-900">{purchase.rewards_store?.name}</h4>
+                                            <p className="text-xs text-gray-500">נרכש ב-{new Date(purchase.purchased_at).toLocaleDateString('he-IL')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Redeemed Items */}
+                    {purchases.filter(p => p.status === 'redeemed').length > 0 && (
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-500 mb-4 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-gray-400"></span>
+                                כבר מימשתי
+                            </h3>
+                            <div className="flex flex-col gap-3">
+                                {purchases.filter(p => p.status === 'redeemed').map(purchase => (
+                                    <div key={purchase.id} className="bg-gray-50 border border-gray-200 p-4 rounded-2xl flex items-center gap-4 opacity-75">
+                                        <div className="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center flex-shrink-0 text-3xl grayscale">
+                                            <IconRenderer iconKey={purchase.rewards_store?.icon_key || '🎁'} />
+                                        </div>
+                                        <div className="flex-1">
+                                            <h4 className="font-bold text-gray-600 line-through decoration-gray-400">{purchase.rewards_store?.name}</h4>
+                                            <p className="text-xs text-gray-400">מומש ב-{purchase.redeemed_at ? new Date(purchase.redeemed_at).toLocaleDateString('he-IL') : 'לא ידוע'}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

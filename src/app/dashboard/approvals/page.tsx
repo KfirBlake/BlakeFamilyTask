@@ -1,9 +1,10 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
-import { Check, X, Clock, Star } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Check, X, Clock, Star, GripVertical } from 'lucide-react'
 import { format } from 'date-fns'
+import { motion, useMotionValue, useTransform, useAnimation } from 'framer-motion'
 
 type Task = {
     id: string
@@ -16,6 +17,96 @@ type Task = {
         full_name: string
         avatar_url: string | null
     }
+}
+
+const DualSwipeButton = ({ onApprove, onReject }: { onApprove: () => void, onReject: () => void }) => {
+    const trackRef = useRef<HTMLDivElement>(null)
+    const handleRef = useRef<HTMLDivElement>(null)
+    const x = useMotionValue(0)
+    const controls = useAnimation()
+    const [isCompleted, setIsCompleted] = useState(false)
+    const [maxDrag, setMaxDrag] = useState(0)
+
+    useEffect(() => {
+        if (trackRef.current && handleRef.current) {
+            const trackWidth = trackRef.current.offsetWidth
+            const handleWidth = handleRef.current.offsetWidth
+            setMaxDrag((trackWidth / 2) - (handleWidth / 2) - 4)
+        }
+    }, [])
+
+    const backgroundColor = useTransform(
+        x,
+        [-maxDrag, 0, maxDrag],
+        ['#22c55e', '#f3f4f6', '#ef4444']
+    )
+
+    const opacityApprove = useTransform(x, [0, -maxDrag * 0.5], [0, 1])
+    const opacityReject = useTransform(x, [0, maxDrag * 0.5], [0, 1])
+    const opacityCenter = useTransform(x, [-maxDrag * 0.2, 0, maxDrag * 0.2], [0, 1, 0])
+
+    const handleDragEnd = async () => {
+        if (isCompleted) return
+        const threshold = maxDrag * 0.7
+
+        if (x.get() <= -threshold) {
+            setIsCompleted(true)
+            await controls.start({ x: -maxDrag, transition: { duration: 0.2 } })
+            onApprove()
+        } else if (x.get() >= threshold) {
+            setIsCompleted(true)
+            await controls.start({ x: maxDrag, transition: { duration: 0.2 } })
+            onReject()
+        } else {
+            controls.start({ x: 0, transition: { type: 'spring', stiffness: 400, damping: 25 } })
+        }
+    }
+
+    if (isCompleted) {
+        return (
+            <div className="w-full bg-gray-100 h-14 rounded-2xl flex items-center justify-center mt-2">
+                <span className="animate-spin w-6 h-6 border-4 border-indigo-400 border-t-indigo-600 rounded-full" />
+            </div>
+        )
+    }
+
+    return (
+        <motion.div
+            ref={trackRef}
+            style={{ backgroundColor }}
+            className="w-full h-14 rounded-2xl relative flex items-center justify-center mt-2 overflow-hidden shadow-inner select-none transition-colors"
+            dir="ltr"
+        >
+            <motion.div style={{ opacity: opacityApprove }} className="absolute right-6 font-bold text-white flex items-center gap-2" dir="rtl">
+                <Check size={20} />
+                <span>אשר</span>
+            </motion.div>
+
+            <motion.div style={{ opacity: opacityReject }} className="absolute left-6 font-bold text-white flex items-center gap-2" dir="rtl">
+                <X size={20} />
+                <span>החזר לביצוע</span>
+            </motion.div>
+
+            <motion.div style={{ opacity: opacityCenter }} className="absolute font-bold text-gray-400 text-sm pointer-events-none" dir="rtl">
+                החלק לאישור או דחייה
+            </motion.div>
+
+            <motion.div
+                ref={handleRef}
+                drag="x"
+                dragConstraints={{ left: -maxDrag, right: maxDrag }}
+                dragElastic={0.1}
+                dragMomentum={false}
+                onDragEnd={handleDragEnd}
+                style={{ x }}
+                animate={controls}
+                whileDrag={{ scale: 1.15 }}
+                className="w-12 h-12 bg-white rounded-xl shadow-md flex items-center justify-center absolute z-10 cursor-grab active:cursor-grabbing"
+            >
+                <GripVertical className="text-gray-400" size={20} />
+            </motion.div>
+        </motion.div>
+    )
 }
 
 export default function ApprovalsPage() {
@@ -117,21 +208,11 @@ export default function ApprovalsPage() {
                                 הושלם ב: {task.completed_at ? format(new Date(task.completed_at), 'dd/MM/yyyy HH:mm') : '-'}
                             </div>
 
-                            <div className="flex gap-3 mt-2">
-                                <button
-                                    onClick={() => handleApprove(task.id)}
-                                    className="flex-1 bg-green-50 text-green-700 hover:bg-green-100 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <Check size={16} />
-                                    אשר
-                                </button>
-                                <button
-                                    onClick={() => handleReject(task.id)}
-                                    className="flex-1 bg-red-50 text-red-700 hover:bg-red-100 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-                                >
-                                    <X size={16} />
-                                    החזר לביצוע
-                                </button>
+                            <div className="mt-2">
+                                <DualSwipeButton
+                                    onApprove={() => handleApprove(task.id)}
+                                    onReject={() => handleReject(task.id)}
+                                />
                             </div>
                         </div>
                     ))}

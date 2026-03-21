@@ -14,9 +14,14 @@ import {
     startOfDay
 } from 'date-fns'
 import { he } from 'date-fns/locale'
-import { ChevronRight, ChevronLeft, Plus, CheckCircle, Clock, Star, Trophy } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, CheckCircle, Clock, Star, Trophy, RefreshCw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import CreateTaskModal from './CreateTaskModal'
+import CreateChildTaskModal from './CreateChildTaskModal'
+import ChildTaskDetailModal from '../child/ChildTaskDetailModal'
+import IconRenderer from '../ui/IconRenderer'
+import { useTouchdownCelebration } from '@/hooks/useTouchdownCelebration'
+import TouchdownCelebration from '@/components/child/TouchdownCelebration'
 
 type Task = {
     id: string
@@ -26,23 +31,30 @@ type Task = {
     status: 'pending' | 'waiting_approval' | 'approved'
     due_date: string | null
     icon_key: string
+    template_id?: string | null
 }
 
 type Props = {
     childId: string
+    childName?: string | null
+    childAvatar?: string | null
     isReadOnly?: boolean
 }
 
 const EMOJI_ICONS = ['🧹', '🛏️', '🍽️', '🐶', '📚', '🦷', '🧺', '🪴']
 
-export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }: Props) {
+export default function WeeklyChildTaskCalendar({ childId, childName, childAvatar, isReadOnly = false }: Props) {
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }))
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedDay, setSelectedDay] = useState<Date>(new Date())
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isChildCreateModalOpen, setIsChildCreateModalOpen] = useState(false)
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [viewingTask, setViewingTask] = useState<Task | null>(null)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [weeklyStats, setWeeklyStats] = useState({ total: 0, completed: 0, percentage: 0 })
+    const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, currentWeekStart, childId)
 
     const supabase = createClient()
 
@@ -147,6 +159,8 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+            {showTouchdown && <TouchdownCelebration onClose={() => setShowTouchdown(false)} />}
+
             {/* Main Calendar Area */}
             <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden border border-gray-100 flex flex-col">
                 {/* Header */}
@@ -159,6 +173,7 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                             <div className="flex gap-2">
                                 <button onClick={() => navigateWeek('prev')} className="p-1 hover:bg-gray-100 rounded-full"><ChevronRight /></button>
                                 <button onClick={() => navigateWeek('next')} className="p-1 hover:bg-gray-100 rounded-full"><ChevronLeft /></button>
+                                <button onClick={() => setCurrentWeekStart(new Date())} className="p-1 hover:bg-gray-100 rounded-full">השבוע</button>
                             </div>
                         </div>
                     </div>
@@ -182,6 +197,11 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                                     key={day.toISOString()}
                                     layout
                                     onClick={() => setSelectedDay(day)}
+                                    onDoubleClick={() => {
+                                        setSelectedDay(day)
+                                        if (isReadOnly) setIsChildCreateModalOpen(true)
+                                        else setIsCreateModalOpen(true)
+                                    }}
                                     className={`
                                         relative group flex flex-col rounded-2xl p-3 border transition-all cursor-pointer h-full min-h-[200px]
                                         ${isSelected
@@ -213,10 +233,18 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                                                     setEditingTask(task)
                                                     setIsCreateModalOpen(true)
                                                 }}
+                                                onClick={(e) => {
+                                                    if (isReadOnly) {
+                                                        e.stopPropagation()
+                                                        setViewingTask(task)
+                                                        setIsDetailModalOpen(true)
+                                                    }
+                                                }}
                                                 className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between group/task hover:border-indigo-200 transition-colors cursor-pointer"
                                             >
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <span className="text-lg">{task.icon_key || '📝'}</span>
+                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                    <IconRenderer iconKey={task.icon_key} className="text-lg w-6 h-6 flex items-center justify-center bg-gray-50 rounded-md" />
+                                                    {task.template_id && <RefreshCw size={12} className="text-gray-400 opacity-60 flex-shrink-0" />}
                                                     <span className="text-xs font-medium text-gray-700 truncate">{task.title}</span>
                                                 </div>
                                                 <div className="flex-shrink-0">
@@ -229,17 +257,25 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                                     </div>
 
                                     {/* Add Button (On Hover/Selected) */}
-                                    {!isReadOnly && (
+                                    {!isReadOnly ? (
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation()
                                                 setSelectedDay(day)
                                                 setIsCreateModalOpen(true)
                                             }}
-                                            className={`
-                                                mt-2 w-full py-2 rounded-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all opacity-0 group-hover:opacity-100
-                                                ${dayTasks.length === 0 ? 'opacity-100 bg-gray-50' : ''}
-                                            `}
+                                            className={`mt-2 w-full py-2 rounded-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all opacity-0 group-hover:opacity-100 ${dayTasks.length === 0 ? 'opacity-100 bg-gray-50' : ''}`}
+                                        >
+                                            <Plus size={18} />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                setSelectedDay(day)
+                                                setIsChildCreateModalOpen(true)
+                                            }}
+                                            className={`mt-2 w-full py-2 rounded-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all opacity-0 group-hover:opacity-100 ${dayTasks.length === 0 ? 'opacity-100 bg-gray-50' : ''}`}
                                         >
                                             <Plus size={18} />
                                         </button>
@@ -293,11 +329,23 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                                             setEditingTask(task)
                                             setIsCreateModalOpen(true)
                                         }}
+                                        onClick={(e) => {
+                                            if (isReadOnly) {
+                                                e.stopPropagation()
+                                                setViewingTask(task)
+                                                setIsDetailModalOpen(true)
+                                            }
+                                        }}
                                         className="p-3 bg-gray-50 rounded-xl flex items-start gap-3 border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors"
                                     >
-                                        <span className="text-2xl bg-white p-1 rounded-lg shadow-sm">{task.icon_key || '📝'}</span>
+                                        <div className="flex-shrink-0 bg-white p-1 rounded-lg shadow-sm w-10 h-10 flex text-2xl flex-col justify-center items-center">
+                                            <IconRenderer iconKey={task.icon_key} className="text-2xl object-cover" size={24} />
+                                        </div>
                                         <div className="flex-1">
-                                            <h4 className="font-bold text-sm text-gray-900">{task.title}</h4>
+                                            <h4 className="font-bold text-sm text-gray-900 flex items-center gap-1.5">
+                                                {task.template_id && <RefreshCw size={12} className="text-gray-400 opacity-70 flex-shrink-0" />}
+                                                {task.title}
+                                            </h4>
                                             {task.description && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{task.description}</p>}
                                             <div className="flex items-center gap-2 mt-2">
                                                 <span className="text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 rounded-md border border-yellow-100 flex items-center gap-1">
@@ -308,23 +356,45 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                                                         'bg-gray-200 text-gray-600'
                                                     }`}>
                                                     {task.status === 'approved' ? 'אושר' :
-                                                        task.status === 'waiting_approval' ? 'ממתין' : 'טרם בוצע'}
+                                                        task.status === 'waiting_approval' ? 'ממתין לאישור הורים' : 'טרם בוצע'}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-gray-400">
-                                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">אין משימות ליום זה</p>
-                                {!isReadOnly && (
+                                {!isReadOnly ? (
                                     <button
                                         onClick={() => setIsCreateModalOpen(true)}
                                         className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
                                     >
                                         + הוסף משימה
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsChildCreateModalOpen(true)}
+                                        className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+                                    >
+                                        + הוסף משימה שלי
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8 text-gray-400">
+                                <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                                <p className="text-sm">אין משימות ליום זה</p>
+                                {!isReadOnly ? (
+                                    <button
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                        className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+                                    >
+                                        + הוסף משימה
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => setIsChildCreateModalOpen(true)}
+                                        className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
+                                    >
+                                        + הוסף משימה שלי
                                     </button>
                                 )}
                             </div>
@@ -345,6 +415,21 @@ export default function WeeklyChildTaskCalendar({ childId, isReadOnly = false }:
                 onSuccess={() => {
                     handleTaskAdded()
                 }}
+            />
+
+            <CreateChildTaskModal
+                isOpen={isChildCreateModalOpen}
+                onClose={() => setIsChildCreateModalOpen(false)}
+                childId={childId}
+                initialDate={format(selectedDay, 'yyyy-MM-dd')}
+                onSuccess={handleTaskAdded}
+            />
+
+            <ChildTaskDetailModal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                task={viewingTask}
+                onSuccess={handleTaskAdded}
             />
         </div >
     )

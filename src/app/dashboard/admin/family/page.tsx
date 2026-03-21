@@ -132,7 +132,7 @@ export default function FamilyAdminPage() {
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {saving ? <Loader2 className="animate-spin" /> : <Save size={20} />}
-                    שמור שינויים
+                    שמור שם משפחה
                 </button>
             </div>
         </div>

@@ -2,7 +2,8 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Clock, Calendar as CalendarIcon, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Calendar as CalendarIcon, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import IconRenderer from '../ui/IconRenderer'
 import { format } from 'date-fns'
 import { he } from 'date-fns/locale'
 
@@ -14,6 +15,7 @@ type Task = {
     due_date: string
     stars_value: number
     icon_key: string
+    template_id?: string | null
 }
 
 export default function TaskCalendar({ childId }: { childId: string }) {
@@ -111,10 +113,16 @@ function TaskCard({ task }: { task: Task }) {
     }
 
     return (
-        <div className={`p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow ${statusColors[task.status]}`}>
-            <div className="flex justify-between items-start">
+        <div className={`p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex items-start gap-4 ${statusColors[task.status]}`}>
+            <div className="w-12 h-12 flex-shrink-0 bg-white shadow-sm border border-gray-100 rounded-xl flex items-center justify-center p-1.5">
+                <IconRenderer iconKey={task.icon_key} className="text-2xl object-contain w-full h-full" />
+            </div>
+            <div className="flex-1 flex justify-between items-start">
                 <div>
-                    <h4 className="font-bold text-gray-900">{task.title}</h4>
+                    <h4 className="font-bold text-gray-900 flex items-center gap-1.5">
+                        {task.template_id && <RefreshCw size={14} className="text-gray-400 opacity-70 flex-shrink-0" />}
+                        {task.title}
+                    </h4>
                     {task.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>}
                 </div>
                 <div className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-md whitespace-nowrap">

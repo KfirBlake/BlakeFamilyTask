@@ -6,6 +6,7 @@ import { LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import AvatarUpload from '@/components/profile/AvatarUpload'
 import ProfileForm from '@/components/profile/ProfileForm'
+import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import StatsCard from '@/components/profile/StatsCard'
 
 export default function ChildProfilePage() {
@@ -75,11 +76,11 @@ export default function ChildProfilePage() {
         <div className="max-w-4xl mx-auto px-4 py-8 pb-24">
             <div className="bg-white rounded-[3rem] shadow-xl border border-gray-100 overflow-hidden">
                 {/* Header Section */}
-                <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 pb-24 relative">
+                <div className="bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-8 pb-40 relative">
                     <div className="absolute top-0 right-0 p-32 bg-white/10 rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
                     <div className="absolute bottom-0 left-0 p-24 bg-indigo-900/10 rounded-full blur-2xl transform -translate-x-1/2 translate-y-1/2"></div>
 
-                    <div className="relative z-10 text-center text-white">
+                    <div className="relative z-10 text-center text-white pb-4">
                         <h1 className="text-3xl font-black mb-2">הפרופיל שלי</h1>
                         <p className="text-indigo-100 font-medium">איזה כיף שאת/ה כאן! 👋</p>
                     </div>
@@ -103,8 +104,9 @@ export default function ChildProfilePage() {
                         </div>
 
                         {/* Form Section */}
-                        <div className="max-w-md mx-auto">
+                        <div className="max-w-md mx-auto space-y-10">
                             <ProfileForm initialData={profile} />
+                            <UserPreferencesForm />
                         </div>
 
                         {/* Sign Out */}

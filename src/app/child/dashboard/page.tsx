@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import ChildTaskCard from '@/components/child/ChildTaskCard'
-import { format } from 'date-fns'
+import { format, startOfWeek, endOfWeek } from 'date-fns'
 import { he } from 'date-fns/locale'
 import { User } from 'lucide-react'
+import { useTouchdownCelebration } from '@/hooks/useTouchdownCelebration'
+import TouchdownCelebration from '@/components/child/TouchdownCelebration'
 
 type Task = {
     id: string
@@ -22,7 +24,8 @@ export default function ChildDashboardPage() {
     const [loading, setLoading] = useState(true)
     const [profile, setProfile] = useState<any>(null)
     const supabase = createClient()
-    const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_approval'>('all')
+    const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_approval'>('pending')
+    const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, new Date(), profile?.id)
 
     useEffect(() => {
         fetchData()
@@ -42,16 +45,17 @@ export default function ChildDashboardPage() {
 
             setProfile(profile)
 
-            // Fetch tasks due today or earlier (pending/waiting) OR approved today
-            const today = format(new Date(), 'yyyy-MM-dd')
+            // Fetch tasks for the current week (Sunday to Saturday)
+            const now = new Date()
+            const weekStart = format(startOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd')
+            const weekEnd = format(endOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd')
 
-            // We fetch a broader range to allow "all" to work within the context of "active or recently done"
             const { data: tasks } = await supabase
                 .from('tasks')
                 .select('*')
                 .eq('assigned_to', user.id)
-                .or(`due_date.lte.${today},status.eq.approved`) // Get relevant tasks
-            // We'll filter/sort client side for the complex logic
+                .gte('due_date', weekStart)
+                .lte('due_date', weekEnd)
 
             if (tasks) {
                 setTasks(tasks)
@@ -61,14 +65,6 @@ export default function ChildDashboardPage() {
     }
 
     const filteredTasks = tasks.filter(task => {
-        const today = format(new Date(), 'yyyy-MM-dd')
-
-        // Basic relevance filter: Today/Overdue OR Approved Today
-        const isRelevant = (task.due_date && task.due_date <= today) || (task.status === 'approved') /* && task.updated_at is today? Assume yes for now or just show all approved */
-
-        // If not relevant (e.g. future task), skip
-        if (!isRelevant && task.status !== 'approved') return false
-
         if (filterStatus === 'all') return true
         if (filterStatus === 'pending') return task.status === 'pending'
         if (filterStatus === 'waiting_approval') return task.status === 'waiting_approval' || task.status === 'approved' // Show done stuff
@@ -97,15 +93,10 @@ export default function ChildDashboardPage() {
 
     return (
         <div className="p-6 max-w-md mx-auto">
+            {showTouchdown && <TouchdownCelebration onClose={() => setShowTouchdown(false)} />}
+
             {/* Header - Only visible on desktop if needed, or customized message */}
             <div className="mb-6 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                <button
-                    onClick={() => setFilterStatus('all')}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
-                        ${filterStatus === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
-                >
-                    הכל 📋
-                </button>
                 <button
                     onClick={() => setFilterStatus('pending')}
                     className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
@@ -119,6 +110,13 @@ export default function ChildDashboardPage() {
                         ${filterStatus === 'waiting_approval' ? 'bg-green-500 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
                 >
                     סיימתי ✅
+                </button>
+                <button
+                    onClick={() => setFilterStatus('all')}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap
+                        ${filterStatus === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                    הכל 📋
                 </button>
             </div>
 
