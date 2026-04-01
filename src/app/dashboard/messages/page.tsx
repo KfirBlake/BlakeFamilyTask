@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { Loader2, Plus, RefreshCw, Search, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 interface FamilyMessage {
     id: string
@@ -14,7 +15,6 @@ interface FamilyMessage {
 }
 
 export default function MessagesAdminPage() {
-    const [familyId, setFamilyId] = useState<string | null>(null)
     const [newMessage, setNewMessage] = useState('')
     const [messages, setMessages] = useState<FamilyMessage[]>([])
     const [loading, setLoading] = useState(true)
@@ -22,25 +22,16 @@ export default function MessagesAdminPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [settingActiveId, setSettingActiveId] = useState<string | null>(null)
     const supabase = createClient()
+    const { userId, familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        if (familyId) fetchData()
+    }, [familyId])
 
     const fetchData = async () => {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('family_id')
-                .eq('id', user.id)
-                .single()
-
-            if (profile?.family_id) {
-                setFamilyId(profile.family_id)
-                await fetchMessages(profile.family_id)
-            }
+        if (familyId) {
+            await fetchMessages(familyId)
         }
         setLoading(false)
     }
@@ -67,15 +58,13 @@ export default function MessagesAdminPage() {
         if (!familyId || !newMessage.trim()) return
 
         setSaving(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
         const { error } = await supabase
             .from('family_messages')
             .insert({
                 family_id: familyId,
                 message: newMessage.trim(),
-                created_by: user.id
+                created_by: userId
             })
 
         if (error) {
@@ -93,8 +82,6 @@ export default function MessagesAdminPage() {
         if (!familyId) return
 
         setSettingActiveId(id)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
         // Insert a new row with the old message content to make it the 'latest'
         const { error } = await supabase
@@ -102,7 +89,7 @@ export default function MessagesAdminPage() {
             .insert({
                 family_id: familyId,
                 message: messageText,
-                created_by: user.id
+                created_by: userId
             })
 
         if (error) {

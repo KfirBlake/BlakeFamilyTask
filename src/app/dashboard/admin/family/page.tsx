@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import FamilyAssetsUpload from '@/components/family/FamilyAssetsUpload'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 export default function FamilyAdminPage() {
     const [family, setFamily] = useState<any>(null)
@@ -12,35 +13,25 @@ export default function FamilyAdminPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        const fetchFamily = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                // First get the user's family_id
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('family_id')
-                    .eq('id', user.id)
-                    .single()
+        if (familyId) fetchFamily()
+    }, [familyId])
 
-                if (profile?.family_id) {
-                    const { data: familyData } = await supabase
-                        .from('families')
-                        .select('*')
-                        .eq('id', profile.family_id)
-                        .single()
+    async function fetchFamily() {
+        const { data: familyData } = await supabase
+            .from('families')
+            .select('*')
+            .eq('id', familyId)
+            .single()
 
-                    if (familyData) {
-                        setFamily(familyData)
-                        setName(familyData.name)
-                    }
-                }
-            }
-            setLoading(false)
+        if (familyData) {
+            setFamily(familyData)
+            setName(familyData.name)
         }
-        fetchFamily()
-    }, [])
+        setLoading(false)
+    }
 
     const handleImageUpload = async (url: string) => {
         if (!family) return

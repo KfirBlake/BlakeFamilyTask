@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Gift, Check } from 'lucide-react'
 import IconRenderer from '@/components/ui/IconRenderer'
 import SwipeToComplete from '@/components/child/SwipeToComplete'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Purchase = {
     id: string
@@ -21,19 +22,16 @@ export default function PendingRewardsPage() {
     const [processingId, setProcessingId] = useState<string | null>(null)
 
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchPending()
-    }, [])
+        if (familyId) fetchPending()
+    }, [familyId])
 
     async function fetchPending() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
-
-        if (profile) {
+        if (familyId) {
             const { data } = await supabase
                 .from('reward_purchases')
                 .select(`
@@ -44,7 +42,7 @@ export default function PendingRewardsPage() {
                     profiles:child_id ( full_name ),
                     rewards_store:reward_id ( name, icon_key, price )
                 `)
-                .eq('family_id', profile.family_id)
+                .eq('family_id', familyId)
                 .eq('status', 'pending')
                 .order('purchased_at', { ascending: false })
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { Trophy, Star, Clock, CheckCircle } from 'lucide-react'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 // types
 type ChildStats = {
@@ -22,24 +23,21 @@ export default function FamilyOverview() {
     const [loading, setLoading] = useState(true)
 
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        if (familyId) fetchData()
+    }, [familyId])
 
     async function fetchData() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
-        if (!profile?.family_id) return
+        if (!familyId) return
 
         // Fetch children
         const { data: children } = await supabase
             .from('profiles')
             .select('*')
-            .eq('family_id', profile.family_id)
+            .eq('family_id', familyId)
             .eq('role', 'child')
 
         if (!children) {
@@ -55,7 +53,7 @@ export default function FamilyOverview() {
         const { data: tasks } = await supabase
             .from('tasks')
             .select('*')
-            .eq('family_id', profile.family_id)
+            .eq('family_id', familyId)
             .gte('due_date', format(start, 'yyyy-MM-dd'))
             .lte('due_date', format(end, 'yyyy-MM-dd'))
 

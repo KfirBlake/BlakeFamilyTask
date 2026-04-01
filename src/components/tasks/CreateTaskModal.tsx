@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { X, Star, Calendar, RefreshCw } from 'lucide-react'
 import { format, addDays, addWeeks, addMonths, addYears, getDay, isBefore, isSameDay } from 'date-fns'
 import IconPicker from '../ui/IconPicker'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Task = {
     id: string
@@ -73,6 +74,7 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
     }, [isOpen, task, initialDate])
 
     const supabase = createClient()
+    const { userId, familyId } = useUserPreferences()
 
     async function handleDeleteFutureTasks() {
         if (!task || !task.template_id) return
@@ -101,17 +103,8 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
         setLoading(true)
         setError(null)
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        if (!userId || !familyId) {
             setError('לא מחובר')
-            setLoading(false)
-            return
-        }
-
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
-
-        if (!profile) {
-            setError('שגיאת פרופיל')
             setLoading(false)
             return
         }
@@ -145,8 +138,8 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
         if (isRecurring) {
             // Include template logic
             const templateData = {
-                family_id: profile.family_id,
-                created_by: user.id,
+                family_id: familyId,
+                created_by: userId,
                 assigned_to: childId,
                 title,
                 description,
@@ -203,8 +196,8 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
             }
 
             const tasksToInsert = occurrences.map(dateStr => ({
-                family_id: profile.family_id,
-                created_by: user.id,
+                family_id: familyId,
+                created_by: userId,
                 assigned_to: childId,
                 title,
                 description,
@@ -227,8 +220,8 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
         } else {
             // Single insert
             const taskData = {
-                family_id: profile.family_id,
-                created_by: user.id,
+                family_id: familyId,
+                created_by: userId,
                 assigned_to: childId,
                 title,
                 description,

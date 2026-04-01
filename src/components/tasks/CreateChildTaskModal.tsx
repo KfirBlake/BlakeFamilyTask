@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { X } from 'lucide-react'
 import IconPicker from '../ui/IconPicker'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Props = {
     isOpen: boolean
@@ -32,30 +33,22 @@ export default function CreateChildTaskModal({ isOpen, onClose, childId, onSucce
     }, [isOpen, initialDate])
 
     const supabase = createClient()
+    const { userId, familyId } = useUserPreferences()
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
+        if (!userId || !familyId) {
             setError('לא מחובר')
             setLoading(false)
             return
         }
 
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
-
-        if (!profile) {
-            setError('שגיאת פרופיל')
-            setLoading(false)
-            return
-        }
-
         const taskData = {
-            family_id: profile.family_id,
-            created_by: user.id,
+            family_id: familyId,
+            created_by: userId,
             assigned_to: childId,
             title,
             description,

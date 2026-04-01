@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Gift, Trash2, Pencil } from 'lucide-react'
 import IconRenderer from '@/components/ui/IconRenderer'
 import IconPicker from '@/components/ui/IconPicker'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Reward = {
     id: string
@@ -20,28 +21,22 @@ export default function RewardsPage() {
     const [editingReward, setEditingReward] = useState<Reward | null>(null)
 
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchRewards()
-    }, [])
+        if (familyId) fetchRewards()
+    }, [familyId])
 
     async function fetchRewards() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
+        const { data } = await supabase
+            .from('rewards_store')
+            .select('*')
+            .eq('family_id', familyId)
+            .order('price', { ascending: true })
 
-        if (profile) {
-            // Fetch Store
-            const { data } = await supabase
-                .from('rewards_store')
-                .select('*')
-                .eq('family_id', profile.family_id)
-                .order('price', { ascending: true })
-
-            if (data) setRewards(data)
-        }
+        if (data) setRewards(data)
         setLoading(false)
     }
 
@@ -119,13 +114,14 @@ export default function RewardsPage() {
                     }}
                     onSuccess={fetchRewards}
                     supabase={supabase}
+                    familyId={familyId}
                 />
             )}
         </div >
     )
 }
 
-function RewardModal({ reward, onClose, onSuccess, supabase }: any) {
+function RewardModal({ reward, onClose, onSuccess, supabase, familyId }: any) {
     const [name, setName] = useState(reward?.name || '')
     const [price, setPrice] = useState(reward?.price || 50)
     const [icon, setIcon] = useState(reward?.icon_key || '🎁')
@@ -150,12 +146,9 @@ function RewardModal({ reward, onClose, onSuccess, supabase }: any) {
                 alert(error.message)
             }
         } else {
-            const { data: { user } } = await supabase.auth.getUser()
-            const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user?.id).single()
-
             const { error } = await supabase.from('rewards_store').insert([
                 {
-                    family_id: profile.family_id,
+                    family_id: familyId,
                     name,
                     price,
                     icon_key: icon

@@ -4,41 +4,42 @@ import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { Star } from 'lucide-react'
 import Image from 'next/image'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 export default function ChildTopBar() {
     const [profile, setProfile] = useState<any>(null)
     const [isBirthday, setIsBirthday] = useState(false)
     const supabase = createClient()
+    const { userId } = useUserPreferences()
 
     useEffect(() => {
+        if (!userId) return
+
         const fetchProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', user.id)
-                    .single()
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single()
 
-                if (data) {
-                    setProfile(data)
+            if (data) {
+                setProfile(data)
 
-                    // Check for birthday
-                    if (data.date_of_birth) {
-                        const today = new Date()
-                        const dob = new Date(data.date_of_birth)
+                // Check for birthday
+                if (data.date_of_birth) {
+                    const today = new Date()
+                    const dob = new Date(data.date_of_birth)
 
-                        if (today.getDate() === dob.getDate() && today.getMonth() === dob.getMonth()) {
-                            setIsBirthday(true)
-                            // Trigger confetti
-                            const confetti = (await import('canvas-confetti')).default
-                            confetti({
-                                particleCount: 150,
-                                spread: 70,
-                                origin: { y: 0.6 },
-                                colors: ['#FFD700', '#FF69B4', '#00BFFF', '#32CD32']
-                            })
-                        }
+                    if (today.getDate() === dob.getDate() && today.getMonth() === dob.getMonth()) {
+                        setIsBirthday(true)
+                        // Trigger confetti
+                        const confetti = (await import('canvas-confetti')).default
+                        confetti({
+                            particleCount: 150,
+                            spread: 70,
+                            origin: { y: 0.6 },
+                            colors: ['#FFD700', '#FF69B4', '#00BFFF', '#32CD32']
+                        })
                     }
                 }
             }
@@ -67,7 +68,7 @@ export default function ChildTopBar() {
         return () => {
             supabase.removeChannel(channel)
         }
-    }, [profile?.id]) // Re-subscribe if ID changes (rare)
+    }, [userId])
 
     if (!profile) {
         return (

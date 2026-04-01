@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Check, X, Clock, Star, GripVertical } from 'lucide-react'
 import { format } from 'date-fns'
 import { motion, useMotionValue, useTransform, useAnimation } from 'framer-motion'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Task = {
     id: string
@@ -113,42 +114,35 @@ export default function ApprovalsPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
+    const { userId, familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchPendingApprovals()
-    }, [])
+        if (familyId) fetchPendingApprovals()
+    }, [familyId])
 
     async function fetchPendingApprovals() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
+        const { data } = await supabase
+            .from('tasks')
+            .select('*, profiles:assigned_to(full_name, avatar_url)')
+            .eq('family_id', familyId)
+            .eq('status', 'waiting_approval')
+            .order('completed_at', { ascending: false })
 
-        if (profile) {
-            const { data } = await supabase
-                .from('tasks')
-                .select('*, profiles:assigned_to(full_name, avatar_url)')
-                .eq('family_id', profile.family_id)
-                .eq('status', 'waiting_approval')
-                .order('completed_at', { ascending: false })
-
-            if (data) {
-                setTasks(data as unknown as Task[])
-            }
+        if (data) {
+            setTasks(data as unknown as Task[])
         }
         setLoading(false)
     }
 
     async function handleApprove(taskId: string) {
-        // 1. Update task to 'approved'
-        // 2. Trigger should handle star increment
         const { error } = await supabase
             .from('tasks')
             .update({
                 status: 'approved',
                 approved_at: new Date().toISOString(),
-                approved_by: (await supabase.auth.getUser()).data.user?.id
+                approved_by: userId
             })
             .eq('id', taskId)
 
@@ -160,7 +154,6 @@ export default function ApprovalsPage() {
     }
 
     async function handleReject(taskId: string) {
-        // Return to 'pending'
         const { error } = await supabase
             .from('tasks')
             .update({ status: 'pending' })

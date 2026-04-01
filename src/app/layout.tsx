@@ -23,7 +23,9 @@ export default function RootLayout({
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className={`font-sans antialiased text-gray-900 bg-gray-50`} suppressHydrationWarning>
         <UserPreferencesProvider>
-          {children}
+          <div id="app-root" className="min-h-screen flex flex-col">
+            {children}
+          </div>
         </UserPreferencesProvider>
       </body>
     </html>

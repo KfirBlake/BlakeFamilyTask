@@ -38,24 +38,23 @@ export default function ChildRewardsPage() {
     const [redeemingId, setRedeemingId] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
-    const { preferences } = useUserPreferences()
+    const { preferences, userId, familyId } = useUserPreferences()
 
     const supabase = createClient()
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        if (userId) fetchData()
+    }, [userId])
 
     async function fetchData() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
 
-        if (user) {
+        if (userId) {
             // Fetch Profile for Balance
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('stars_balance, full_name, family_id')
-                .eq('id', user.id)
+                .eq('id', userId)
                 .single()
 
             if (profile) {
@@ -86,7 +85,7 @@ export default function ChildRewardsPage() {
                             description
                         )
                     `)
-                    .eq('child_id', user.id)
+                    .eq('child_id', userId)
                     .order('purchased_at', { ascending: false })
 
                 // Supabase joins can return arrays or objects. Safe casting:
@@ -107,11 +106,10 @@ export default function ChildRewardsPage() {
         setError(null)
         setSuccessMsg(null)
 
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (!userId || !familyId) return
 
-        // 2. Extract context
-        const { data: profile } = await supabase.from('profiles').select('family_id, stars_balance').eq('id', user.id).single()
+        // 2. Extract context - re-check balance in DB for security
+        const { data: profile } = await supabase.from('profiles').select('family_id, stars_balance').eq('id', userId).single()
         if (!profile) return
 
         // 3. Ensure they actually have enough balance in DB
@@ -125,13 +123,13 @@ export default function ChildRewardsPage() {
         await supabase
             .from('profiles')
             .update({ stars_balance: profile.stars_balance - reward.price })
-            .eq('id', user.id)
+            .eq('id', userId)
 
         // 5. Insert Redemption into new architecture
         const { error: redeemError } = await supabase
             .from('reward_purchases')
             .insert({
-                child_id: user.id,
+                child_id: userId,
                 reward_id: reward.id,
                 family_id: profile.family_id,
                 status: 'pending'

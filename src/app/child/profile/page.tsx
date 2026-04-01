@@ -8,41 +8,41 @@ import AvatarUpload from '@/components/profile/AvatarUpload'
 import ProfileForm from '@/components/profile/ProfileForm'
 import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import StatsCard from '@/components/profile/StatsCard'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 export default function ChildProfilePage() {
     const [profile, setProfile] = useState<any>(null)
     const [stats, setStats] = useState({ stars: 0, completed: 0 })
     const supabase = createClient()
     const router = useRouter()
+    const { userId } = useUserPreferences()
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('*, date_of_birth')
-                    .eq('id', user.id)
-                    .single()
+        if (userId) fetchProfile()
+    }, [userId])
 
-                if (data) {
-                    setProfile(data)
-                    // Fetch completed tasks count
-                    const { count } = await supabase
-                        .from('tasks')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('assigned_to', user.id)
-                        .eq('status', 'approved')
+    async function fetchProfile() {
+        const { data } = await supabase
+            .from('profiles')
+            .select('*, date_of_birth')
+            .eq('id', userId)
+            .single()
 
-                    setStats({
-                        stars: data.stars_balance || 0,
-                        completed: count || 0
-                    })
-                }
-            }
+        if (data) {
+            setProfile(data)
+            // Fetch completed tasks count
+            const { count } = await supabase
+                .from('tasks')
+                .select('*', { count: 'exact', head: true })
+                .eq('assigned_to', userId)
+                .eq('status', 'approved')
+
+            setStats({
+                stars: data.stars_balance || 0,
+                completed: count || 0
+            })
         }
-        fetchProfile()
-    }, [])
+    }
 
     const handleSignOut = async () => {
         await supabase.auth.signOut()

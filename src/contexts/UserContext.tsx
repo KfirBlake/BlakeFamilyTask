@@ -3,6 +3,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
+// Prevent double-init in StrictMode
+let oneSignalInitRequested = false
+
 type UserPreferences = {
     settings_sound: boolean
     settings_confetti: boolean
@@ -11,6 +14,8 @@ type UserPreferences = {
 }
 
 type UserContextType = {
+    userId: string | null
+    familyId: string | null
     preferences: UserPreferences
     updatePreferences: (newPrefs: Partial<UserPreferences>) => Promise<void>
     loading: boolean
@@ -24,12 +29,16 @@ const defaultPreferences: UserPreferences = {
 }
 
 const UserContext = createContext<UserContextType>({
+    userId: null,
+    familyId: null,
     preferences: defaultPreferences,
     updatePreferences: async () => { },
     loading: true
 })
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
+    const [userId, setUserId] = useState<string | null>(null)
+    const [familyId, setFamilyId] = useState<string | null>(null)
     const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
@@ -46,11 +55,13 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
 
             const { data } = await supabase
                 .from('profiles')
-                .select('settings_sound, settings_confetti, settings_touchdown, settings_dark_mode')
+                .select('family_id, settings_sound, settings_confetti, settings_touchdown, settings_dark_mode')
                 .eq('id', session.user.id)
                 .single()
 
             if (data && mounted) {
+                setUserId(session.user.id)
+                setFamilyId(data.family_id ?? null)
                 setPreferences({
                     settings_sound: data.settings_sound ?? true,
                     settings_confetti: data.settings_confetti ?? true,
@@ -77,9 +88,45 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
         }
     }, [preferences.settings_dark_mode])
 
+    useEffect(() => {
+        if (!userId) return
+
+        const initOneSignal = async () => {
+            if (oneSignalInitRequested) return
+            oneSignalInitRequested = true
+
+            const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
+            if (!appId) {
+                console.warn('OneSignal App ID missing from env')
+                return
+            }
+
+            try {
+                // Dynamic import prevents SSR "window is not defined" crashes
+                const OS = await import('react-onesignal')
+                const OneSignal = OS.default || OS
+
+                await OneSignal.init({
+                    appId,
+                    allowLocalhostAsSecureOrigin: true,
+                })
+
+                await OneSignal.Slidedown.promptPush()
+
+                // Authenticate with OneSignal to link this device to the Supabase User ID completely automatically
+                if (OneSignal.login) {
+                    await OneSignal.login(userId)
+                }
+            } catch (error) {
+                console.error('Error initializing OneSignal:', error)
+            }
+        }
+
+        initOneSignal()
+    }, [userId])
+
     const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
+        if (!userId) return
 
         // Optimistic UI update
         setPreferences(prev => ({ ...prev, ...newPrefs }))
@@ -88,11 +135,11 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
         await supabase
             .from('profiles')
             .update(newPrefs)
-            .eq('id', user.id)
+            .eq('id', userId)
     }
 
     return (
-        <UserContext.Provider value={{ preferences, updatePreferences, loading }}>
+        <UserContext.Provider value={{ userId, familyId, preferences, updatePreferences, loading }}>
             {children}
         </UserContext.Provider>
     )

@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useMemo } from 'react'
 import { Search, Filter, History } from 'lucide-react'
 import IconRenderer from '@/components/ui/IconRenderer'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Purchase = {
     id: string
@@ -24,19 +25,16 @@ export default function HistoryRewardsPage() {
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc')
 
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchHistory()
-    }, [])
+        if (familyId) fetchHistory()
+    }, [familyId])
 
     async function fetchHistory() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
 
-        const { data: profile } = await supabase.from('profiles').select('family_id').eq('id', user.id).single()
-
-        if (profile) {
+        if (familyId) {
             const { data } = await supabase
                 .from('reward_purchases')
                 .select(`
@@ -47,7 +45,7 @@ export default function HistoryRewardsPage() {
                     profiles:child_id ( full_name ),
                     rewards_store:reward_id ( name, icon_key, price )
                 `)
-                .eq('family_id', profile.family_id)
+                .eq('family_id', familyId)
                 .eq('status', 'redeemed')
                 .order('redeemed_at', { ascending: false })
 

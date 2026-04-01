@@ -8,6 +8,7 @@ import { he } from 'date-fns/locale'
 import { User } from 'lucide-react'
 import { useTouchdownCelebration } from '@/hooks/useTouchdownCelebration'
 import TouchdownCelebration from '@/components/child/TouchdownCelebration'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Task = {
     id: string
@@ -25,22 +26,22 @@ export default function ChildDashboardPage() {
     const [profile, setProfile] = useState<any>(null)
     const supabase = createClient()
     const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_approval'>('pending')
+    const { userId } = useUserPreferences()
     const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, new Date(), profile?.id)
 
     useEffect(() => {
-        fetchData()
-    }, [])
+        if (userId) fetchData()
+    }, [userId])
 
     async function fetchData() {
         setLoading(true)
-        const { data: { user } } = await supabase.auth.getUser()
 
-        if (user) {
+        if (userId) {
             // Fetch Profile
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
-                .eq('id', user.id)
+                .eq('id', userId)
                 .single()
 
             setProfile(profile)
@@ -53,7 +54,7 @@ export default function ChildDashboardPage() {
             const { data: tasks } = await supabase
                 .from('tasks')
                 .select('*')
-                .eq('assigned_to', user.id)
+                .eq('assigned_to', userId)
                 .gte('due_date', weekStart)
                 .lte('due_date', weekEnd)
 

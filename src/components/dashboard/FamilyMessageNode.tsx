@@ -4,6 +4,7 @@ import { useEffect, useState, memo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Amatic_SC } from 'next/font/google'
 import Image from 'next/image'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 const amatic = Amatic_SC({ subsets: ['hebrew', 'latin'], weight: ['700'] })
 
@@ -11,61 +12,52 @@ const FamilyMessageNode = memo(function FamilyMessageNode() {
     const [message, setMessage] = useState('')
     const [isVisible, setIsVisible] = useState(false)
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
+        if (!familyId) return
         let channel: any;
 
         const fetchMessage = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('family_id')
-                    .eq('id', user.id)
-                    .single()
+            // Initial fetch
+            const { data: messageData } = await supabase
+                .from('family_messages')
+                .select('message')
+                .eq('family_id', familyId)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle()
 
-                if (profile?.family_id) {
-                    // Initial fetch
-                    const { data: messageData } = await supabase
-                        .from('family_messages')
-                        .select('message')
-                        .eq('family_id', profile.family_id)
-                        .order('created_at', { ascending: false })
-                        .limit(1)
-                        .maybeSingle()
-
-                    if (messageData && messageData.message.trim() !== '') {
-                        setMessage(messageData.message)
-                        setIsVisible(true)
-                    } else {
-                        setIsVisible(false)
-                    }
-
-                    // Realtime subscription
-                    channel = supabase
-                        .channel('public:family_messages')
-                        .on(
-                            'postgres_changes',
-                            {
-                                event: 'INSERT',
-                                schema: 'public',
-                                table: 'family_messages',
-                                filter: `family_id=eq.${profile.family_id}`
-                            },
-                            (payload) => {
-                                const newMessage = payload.new.message;
-                                if (newMessage.trim() === '') {
-                                    setIsVisible(false);
-                                    setTimeout(() => setMessage(''), 300); // Wait for fade out
-                                } else {
-                                    setMessage(newMessage);
-                                    setIsVisible(true);
-                                }
-                            }
-                        )
-                        .subscribe()
-                }
+            if (messageData && messageData.message.trim() !== '') {
+                setMessage(messageData.message)
+                setIsVisible(true)
+            } else {
+                setIsVisible(false)
             }
+
+            // Realtime subscription
+            channel = supabase
+                .channel('public:family_messages')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'family_messages',
+                        filter: `family_id=eq.${familyId}`
+                    },
+                    (payload) => {
+                        const newMessage = payload.new.message;
+                        if (newMessage.trim() === '') {
+                            setIsVisible(false);
+                            setTimeout(() => setMessage(''), 300);
+                        } else {
+                            setMessage(newMessage);
+                            setIsVisible(true);
+                        }
+                    }
+                )
+                .subscribe()
         }
 
         fetchMessage()
@@ -73,7 +65,7 @@ const FamilyMessageNode = memo(function FamilyMessageNode() {
         return () => {
             if (channel) supabase.removeChannel(channel)
         }
-    }, [])
+    }, [familyId])
 
     if (!isVisible && !message) return null
 

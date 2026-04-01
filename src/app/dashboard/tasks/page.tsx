@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import WeeklyChildTaskCalendar from '@/components/tasks/WeeklyChildTaskCalendar'
 import CreateTaskModal from '@/components/tasks/CreateTaskModal'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 type Profile = {
     id: string
@@ -19,35 +20,22 @@ export default function TasksPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
+    const { familyId } = useUserPreferences()
 
     useEffect(() => {
-        fetchChildren()
-    }, [])
+        if (familyId) fetchChildren()
+    }, [familyId])
 
     async function fetchChildren() {
-        // Determine my role first? Or just fetch family members who are children.
-        // For now, fetch all 'child' role profiles in my family.
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-
-        // Get my family_id
-        const { data: myProfile } = await supabase
+        const { data: kids } = await supabase
             .from('profiles')
-            .select('family_id, role')
-            .eq('id', user.id)
-            .single()
+            .select('*')
+            .eq('family_id', familyId)
+            .eq('role', 'child')
 
-        if (myProfile) {
-            const { data: kids } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('family_id', myProfile.family_id)
-                .eq('role', 'child')
-
-            if (kids && kids.length > 0) {
-                setChildren(kids)
-                setSelectedChildId(kids[0].id)
-            }
+        if (kids && kids.length > 0) {
+            setChildren(kids)
+            setSelectedChildId(kids[0].id)
         }
         setLoading(false)
     }

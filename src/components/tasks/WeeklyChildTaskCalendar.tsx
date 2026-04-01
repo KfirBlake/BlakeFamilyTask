@@ -20,8 +20,6 @@ import CreateTaskModal from './CreateTaskModal'
 import CreateChildTaskModal from './CreateChildTaskModal'
 import ChildTaskDetailModal from '../child/ChildTaskDetailModal'
 import IconRenderer from '../ui/IconRenderer'
-import { useTouchdownCelebration } from '@/hooks/useTouchdownCelebration'
-import TouchdownCelebration from '@/components/child/TouchdownCelebration'
 
 type Task = {
     id: string
@@ -54,7 +52,7 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
     const [viewingTask, setViewingTask] = useState<Task | null>(null)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [weeklyStats, setWeeklyStats] = useState({ total: 0, completed: 0, percentage: 0 })
-    const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, currentWeekStart, childId)
+
 
     const supabase = createClient()
 
@@ -159,8 +157,6 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
 
     return (
         <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
-            {showTouchdown && <TouchdownCelebration onClose={() => setShowTouchdown(false)} />}
-
             {/* Main Calendar Area */}
             <div className="flex-1 bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl overflow-hidden border border-gray-100 flex flex-col">
                 {/* Header */}

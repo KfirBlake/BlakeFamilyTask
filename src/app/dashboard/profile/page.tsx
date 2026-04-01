@@ -6,28 +6,26 @@ import AvatarUpload from '@/components/profile/AvatarUpload'
 import ProfileForm from '@/components/profile/ProfileForm'
 import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import { UserCircle } from 'lucide-react'
+import { useUserPreferences } from '@/contexts/UserContext'
 
 export default function ParentProfilePage() {
     const [profile, setProfile] = useState<any>(null)
     const supabase = createClient()
+    const { userId } = useUserPreferences()
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data } = await supabase
-                    .from('profiles')
-                    .select('*, date_of_birth') // Fetch DOB as well
-                    .eq('id', user.id)
-                    .single()
+        if (userId) fetchProfile()
+    }, [userId])
 
-                if (data) {
-                    setProfile(data)
-                }
-            }
-        }
-        fetchProfile()
-    }, [])
+    async function fetchProfile() {
+        const { data } = await supabase
+            .from('profiles')
+            .select('*, date_of_birth')
+            .eq('id', userId)
+            .single()
+
+        if (data) setProfile(data)
+    }
 
     const handleAvatarUpdate = async (url: string) => {
         if (!profile) return
