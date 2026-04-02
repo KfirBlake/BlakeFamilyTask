@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 // import { Heebo } from "next/font/google";
 import "./globals.css";
 
@@ -7,12 +7,18 @@ import "./globals.css";
 //   variable: "--font-heebo",
 // });
 
+export const viewport: Viewport = {
+  themeColor: "#AA0000",
+};
+
 export const metadata: Metadata = {
   title: "FamilyTask",
   description: "Gamified family task management",
+  manifest: "/manifest.json",
 };
 
 import { UserPreferencesProvider } from '@/contexts/UserContext';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 export default function RootLayout({
   children,
@@ -25,6 +31,7 @@ export default function RootLayout({
         <UserPreferencesProvider>
           <div id="app-root" className="min-h-screen flex flex-col">
             {children}
+            <InstallPrompt />
           </div>
         </UserPreferencesProvider>
       </body>

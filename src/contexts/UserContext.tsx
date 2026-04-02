@@ -89,8 +89,6 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     }, [preferences.settings_dark_mode])
 
     useEffect(() => {
-        if (!userId) return
-
         const initOneSignal = async () => {
             if (oneSignalInitRequested) return
             oneSignalInitRequested = true
@@ -114,7 +112,7 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
                 await OneSignal.Slidedown.promptPush()
 
                 // Authenticate with OneSignal to link this device to the Supabase User ID completely automatically
-                if (OneSignal.login) {
+                if (userId && OneSignal.login) {
                     await OneSignal.login(userId)
                 }
             } catch (error) {
