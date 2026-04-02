@@ -100,7 +100,6 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
             }
 
             try {
-                // Dynamic import prevents SSR "window is not defined" crashes
                 const OS = await import('react-onesignal')
                 const OneSignal = OS.default || OS
 
@@ -110,17 +109,30 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
                 })
 
                 await OneSignal.Slidedown.promptPush()
-
-                // Authenticate with OneSignal to link this device to the Supabase User ID completely automatically
-                if (userId && OneSignal.login) {
-                    await OneSignal.login(userId)
-                }
             } catch (error) {
                 console.error('Error initializing OneSignal:', error)
             }
         }
 
         initOneSignal()
+    }, [])
+
+    useEffect(() => {
+        if (!userId) return
+
+        const loginOneSignal = async () => {
+            try {
+                const OS = await import('react-onesignal')
+                const OneSignal = OS.default || OS
+                if (OneSignal.login) {
+                    await OneSignal.login(userId)
+                }
+            } catch (error) {
+                console.error('Error logging into OneSignal:', error)
+            }
+        }
+
+        loginOneSignal()
     }, [userId])
 
     const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
