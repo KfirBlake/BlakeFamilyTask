@@ -3,8 +3,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { createClient } from '@/utils/supabase/client'
 
-// Prevent double-init in StrictMode
-let oneSignalInitRequested = false
+// Module-level flag to prevent double-init across React StrictMode double-invocations
+let oneSignalInitialized = false
 
 type UserPreferences = {
     settings_sound: boolean
@@ -89,10 +89,10 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     }, [preferences.settings_dark_mode])
 
     useEffect(() => {
-        const initOneSignal = async () => {
-            if (oneSignalInitRequested) return
-            oneSignalInitRequested = true
-
+        // Run OneSignal init + permission prompt on every page load.
+        // The login(userId) step runs immediately after init if the user is already known,
+        // ensuring external_id is always set in the same sequential flow.
+        const setupOneSignal = async () => {
             const appId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID
             if (!appId) {
                 console.warn('OneSignal App ID missing from env')
@@ -103,37 +103,36 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
                 const OS = await import('react-onesignal')
                 const OneSignal = OS.default || OS
 
-                await OneSignal.init({
-                    appId,
-                    allowLocalhostAsSecureOrigin: true,
-                })
+                if (!oneSignalInitialized) {
+                    oneSignalInitialized = true
+                    await OneSignal.init({
+                        appId,
+                        allowLocalhostAsSecureOrigin: true,
+                    })
+                }
 
-                await OneSignal.Slidedown.promptPush()
-            } catch (error) {
-                console.error('Error initializing OneSignal:', error)
-            }
-        }
+                // Always try to prompt for push permission (OneSignal is smart enough
+                // to skip this silently if the user already answered or is on an
+                // unsupported browser)
+                try {
+                    await OneSignal.Slidedown.promptPush({ force: false })
+                } catch {
+                    // promptPush can throw if already prompted — safely ignore
+                }
 
-        initOneSignal()
-    }, [])
-
-    useEffect(() => {
-        if (!userId) return
-
-        const loginOneSignal = async () => {
-            try {
-                const OS = await import('react-onesignal')
-                const OneSignal = OS.default || OS
-                if (OneSignal.login) {
+                // Link the Supabase user ID as OneSignal external_id so the Edge
+                // Function can target users by their Supabase UUID
+                if (userId) {
                     await OneSignal.login(userId)
+                    console.log('[OneSignal] Logged in as', userId)
                 }
             } catch (error) {
-                console.error('Error logging into OneSignal:', error)
+                console.error('OneSignal setup error:', error)
             }
         }
 
-        loginOneSignal()
-    }, [userId])
+        setupOneSignal()
+    }, [userId]) // Re-run whenever userId changes (covers login AND initial load)
 
     const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
         if (!userId) return
