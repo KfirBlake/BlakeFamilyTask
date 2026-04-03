@@ -111,13 +111,16 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
                     })
                 }
 
-                // Always try to prompt for push permission (OneSignal is smart enough
-                // to skip this silently if the user already answered or is on an
-                // unsupported browser)
-                try {
-                    await OneSignal.Slidedown.promptPush({ force: false })
-                } catch {
-                    // promptPush can throw if already prompted — safely ignore
+                // Request push permission using the native browser dialog.
+                // This is more reliable than OneSignal's custom Slidedown on Android,
+                // and only shows when permission hasn't been granted yet.
+                if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                    try {
+                        const result = await Notification.requestPermission()
+                        console.log('[OneSignal] Notification permission:', result)
+                    } catch {
+                        // Some browsers don't support the promise-based API — silently ignore
+                    }
                 }
 
                 // Link the Supabase user ID as OneSignal external_id so the Edge
