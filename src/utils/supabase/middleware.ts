@@ -37,14 +37,19 @@ export async function updateSession(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/signup') &&
-        !request.nextUrl.pathname.startsWith('/auth') &&
-        request.nextUrl.pathname !== '/'
-    ) {
-        // no user, potentially respond by redirecting the user to the login page
+    const publicPaths = ['/', '/login', '/signup']
+    const isPublicPath = publicPaths.includes(request.nextUrl.pathname) ||
+        request.nextUrl.pathname.startsWith('/auth')
+
+    if (user && isPublicPath) {
+        // Authenticated user visiting landing/login/signup → send to dashboard
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+    }
+
+    if (!user && !isPublicPath) {
+        // Unauthenticated user visiting a protected route → send to login
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)

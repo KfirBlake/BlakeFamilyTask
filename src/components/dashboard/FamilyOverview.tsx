@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { Trophy, Star, Clock, CheckCircle } from 'lucide-react'
@@ -166,10 +167,10 @@ export default function FamilyOverview() {
 
                                     <td className="py-5 px-6 text-center">
                                         {child.tasksPendingApproval > 0 ? (
-                                            <div className="inline-flex items-center justify-center gap-2 font-black text-white bg-[#AA0000] px-4 py-2 rounded-xl shadow-md border border-red-900 border-opacity-20 hover:scale-105 transition-transform cursor-default">
+                                            <Link href="/dashboard/approvals" className="inline-flex items-center justify-center gap-2 font-black text-white bg-[#AA0000] px-4 py-2 rounded-xl shadow-md border border-red-900 border-opacity-20 hover:scale-105 transition-transform">
                                                 <Clock size={16} className="animate-pulse" />
                                                 <span className="tabular-nums">{child.tasksPendingApproval} ממתינים</span>
-                                            </div>
+                                            </Link>
                                         ) : (
                                             <span className="text-gray-400 text-sm font-medium">--</span>
                                         )}
@@ -232,10 +233,10 @@ export default function FamilyOverview() {
                             </div>
 
                             {child.tasksPendingApproval > 0 && (
-                                <div className="w-full flex items-center justify-center gap-2 font-black text-white bg-[#AA0000] p-3 rounded-xl shadow-md border border-red-900 border-opacity-20 animate-in zoom-in duration-300">
+                                <Link href="/dashboard/approvals" className="w-full flex items-center justify-center gap-2 font-black text-white bg-[#AA0000] p-3 rounded-xl shadow-md border border-red-900 border-opacity-20 animate-in zoom-in duration-300 hover:brightness-110 transition-all">
                                     <Clock size={16} className="animate-pulse" />
                                     <span>{child.tasksPendingApproval} משימות ממתינות לאישור!</span>
-                                </div>
+                                </Link>
                             )}
                         </div>
                     )
