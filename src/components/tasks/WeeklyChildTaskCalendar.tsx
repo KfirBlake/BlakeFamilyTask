@@ -252,30 +252,7 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                                         ))}
                                     </div>
 
-                                    {/* Add Button (On Hover/Selected) */}
-                                    {!isReadOnly ? (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                setSelectedDay(day)
-                                                setIsCreateModalOpen(true)
-                                            }}
-                                            className={`mt-2 w-full py-2 rounded-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all opacity-0 group-hover:opacity-100 ${dayTasks.length === 0 ? 'opacity-100 bg-gray-50' : ''}`}
-                                        >
-                                            <Plus size={18} />
-                                        </button>
-                                    ) : (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                setSelectedDay(day)
-                                                setIsChildCreateModalOpen(true)
-                                            }}
-                                            className={`mt-2 w-full py-2 rounded-xl flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all opacity-0 group-hover:opacity-100 ${dayTasks.length === 0 ? 'opacity-100 bg-gray-50' : ''}`}
-                                        >
-                                            <Plus size={18} />
-                                        </button>
-                                    )}
+
                                 </motion.div>
                             )
                         })}
