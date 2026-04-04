@@ -6,7 +6,12 @@ import { Star } from 'lucide-react'
 import Image from 'next/image'
 import { useUserPreferences } from '@/contexts/UserContext'
 
-export default function ChildTopBar() {
+interface ChildTopBarProps {
+    /** When true, renders inline content only (no wrapping header element) for use inside the mobile sidebar top bar */
+    compact?: boolean
+}
+
+export default function ChildTopBar({ compact = false }: ChildTopBarProps) {
     const [profile, setProfile] = useState<any>(null)
     const [isBirthday, setIsBirthday] = useState(false)
     const supabase = createClient()
@@ -70,7 +75,19 @@ export default function ChildTopBar() {
         }
     }, [userId])
 
+    // Loading skeleton
     if (!profile) {
+        if (compact) {
+            return (
+                <div className="flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gray-200 rounded-full" />
+                        <div className="h-4 w-20 bg-gray-200 rounded" />
+                    </div>
+                    <div className="w-16 h-7 bg-gray-200 rounded-full" />
+                </div>
+            )
+        }
         return (
             <header className="flex items-center justify-between px-6 py-4 bg-white/50 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100/50">
                 <div className="flex items-center gap-3 animate-pulse">
@@ -85,6 +102,45 @@ export default function ChildTopBar() {
         )
     }
 
+    // Compact mode: inline row for inside the mobile sidebar top bar
+    if (compact) {
+        return (
+            <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className="relative w-8 h-8 flex-shrink-0">
+                        {profile.avatar_url ? (
+                            <Image
+                                src={profile.avatar_url}
+                                alt={profile.full_name}
+                                fill
+                                className="rounded-full object-cover border-2 border-white shadow-sm"
+                            />
+                        ) : (
+                            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm text-sm">
+                                {profile.full_name?.charAt(0)}
+                            </div>
+                        )}
+                        {isBirthday && (
+                            <div className="absolute -top-2 -right-2 text-sm animate-bounce">👑</div>
+                        )}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                        <span className="text-xs text-gray-500 leading-none">היי,</span>
+                        <span className="text-sm font-black text-gray-900 leading-tight truncate">
+                            {profile.display_name || profile.full_name}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full font-black text-sm flex items-center gap-1 shadow-sm flex-shrink-0">
+                    <span>{profile.stars_balance}</span>
+                    <Star size={16} className="fill-yellow-100 text-yellow-800" />
+                </div>
+            </div>
+        )
+    }
+
+    // Full mode: used on desktop
     return (
         <header className="flex flex-col sticky top-0 z-40">
             {isBirthday && (
@@ -95,7 +151,6 @@ export default function ChildTopBar() {
             <div className="flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md border-b border-gray-100 shadow-sm transition-all md:px-8">
                 <div className="flex items-center gap-3">
                     <div className="relative w-10 h-10 md:w-12 md:h-12 transition-all">
-                        {/* Avatar Logic: If avatar_url exists use it, else initials */}
                         {profile.avatar_url ? (
                             <Image
                                 src={profile.avatar_url}
