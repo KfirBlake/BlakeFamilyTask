@@ -285,28 +285,6 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
 
             {/* Sidebar Stats & Details */}
             <div className="w-full lg:w-80 flex flex-col gap-6">
-                {/* Gamification Card */}
-                <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 sticky top-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-gray-900">התקדמות שבועית</h3>
-                        <Trophy className={weeklyStats.percentage === 100 ? "text-yellow-500 animate-bounce" : "text-gray-300"} size={22} />
-                    </div>
-
-                    <div className="flex flex-col items-center mb-6">
-                        <CircularProgress percentage={weeklyStats.percentage} />
-                        <div className="mt-4 text-center">
-                            <p className="text-2xl font-bold text-gray-900">{weeklyStats.completed}/{weeklyStats.total}</p>
-                            <p className="text-xs text-gray-500">משימות הושלמו</p>
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50">
-                        <p className="text-sm text-indigo-800 text-center font-medium leading-relaxed">
-                            {getMotivationMessage(weeklyStats.percentage)}
-                        </p>
-                    </div>
-                </div >
-
                 {/* Selected Day Detail */}
                 <div className="bg-white rounded-3xl p-6 shadow-lg border border-gray-100 flex-1">
                     <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -397,6 +375,30 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                         )
                     }
                 </div >
+
+                {/* Gamification Card */}
+                <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 sticky top-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-gray-900">התקדמות שבועית</h3>
+                        <Trophy className={weeklyStats.percentage === 100 ? "text-yellow-500 animate-bounce" : "text-gray-300"} size={22} />
+                    </div>
+
+                    <div className="flex flex-col items-center mb-6">
+                        <CircularProgress percentage={weeklyStats.percentage} />
+                        <div className="mt-4 text-center">
+                            <p className="text-2xl font-bold text-gray-900">{weeklyStats.completed}/{weeklyStats.total}</p>
+                            <p className="text-xs text-gray-500">משימות הושלמו</p>
+                        </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-2xl border border-indigo-100/50">
+                        <p className="text-sm text-indigo-800 text-center font-medium leading-relaxed">
+                            {getMotivationMessage(weeklyStats.percentage)}
+                        </p>
+                    </div>
+                </div >
+
+
             </div >
 
             <CreateTaskModal

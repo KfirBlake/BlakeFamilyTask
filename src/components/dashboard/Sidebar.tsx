@@ -74,7 +74,7 @@ export default function DashboardSidebar({ children, userProfile }: Props) {
                 sidebarOpen ? "translate-x-0" : "translate-x-full"
             )}>
                 <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200">
-                    <Link href="/dashboard" className="flex items-center gap-3">
+                    <Link href="/dashboard" className="flex items-center gap-3" onClick={() => setSidebarOpen(false)}>
                         {familyImage ? (
                             <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
                                 <img src={familyImage} alt="Logo" className="object-cover w-full h-full" />
