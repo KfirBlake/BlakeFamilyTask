@@ -111,15 +111,18 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
                     })
                 }
 
-                // Request push permission using the native browser dialog.
-                // This is more reliable than OneSignal's custom Slidedown on Android,
-                // and only shows when permission hasn't been granted yet.
-                if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                // optIn() handles all cases:
+                //  - permission = 'default' → shows the native browser dialog
+                //  - permission = 'granted' → silently creates/repairs the subscription
+                //  - permission = 'denied'  → does nothing
+                // This is the correct fix when users granted permission but
+                // no OneSignal subscription exists (e.g. after a Site URL change).
+                if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
                     try {
-                        const result = await Notification.requestPermission()
-                        console.log('[OneSignal] Notification permission:', result)
+                        await OneSignal.User.PushSubscription.optIn()
+                        console.log('[OneSignal] PushSubscription optIn called, permission:', Notification.permission)
                     } catch {
-                        // Some browsers don't support the promise-based API — silently ignore
+                        // optIn() can fail on unsupported browsers — safely ignore
                     }
                 }
 
