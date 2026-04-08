@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import WeeklyChildTaskCalendar from '@/components/tasks/WeeklyChildTaskCalendar'
 import CreateTaskModal from '@/components/tasks/CreateTaskModal'
@@ -21,6 +22,8 @@ export default function TasksPage() {
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
     const { familyId } = useUserPreferences()
+    const searchParams = useSearchParams()
+    const preselectedChildId = searchParams.get('child')
 
     useEffect(() => {
         if (familyId) fetchChildren()
@@ -35,7 +38,9 @@ export default function TasksPage() {
 
         if (kids && kids.length > 0) {
             setChildren(kids)
-            setSelectedChildId(kids[0].id)
+            // Pre-select from ?child= query param if valid, otherwise default to first child
+            const match = preselectedChildId && kids.find(k => k.id === preselectedChildId)
+            setSelectedChildId(match ? match.id : kids[0].id)
         }
         setLoading(false)
     }

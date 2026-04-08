@@ -127,16 +127,19 @@ export default function FamilyOverview() {
                             return (
                                 <tr key={child.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                                     <td className="py-5 px-6">
-                                        <div className="flex items-center gap-4">
+                                        <Link
+                                            href={`/dashboard/tasks?child=${child.id}`}
+                                            className="flex items-center gap-4 group"
+                                        >
                                             {child.avatar ? (
-                                                <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm" />
+                                                <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                             ) : (
-                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-black text-indigo-700 shadow-sm border border-indigo-200/50">
+                                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                                     {child.name.charAt(0)}
                                                 </div>
                                             )}
-                                            <span className="font-bold text-gray-900 text-lg tracking-tight">{child.name}</span>
-                                        </div>
+                                            <span className="font-bold text-gray-900 text-lg tracking-tight group-hover:text-indigo-600 transition-colors">{child.name}</span>
+                                        </Link>
                                     </td>
 
                                     <td className="py-5 px-6 align-middle">
@@ -161,7 +164,7 @@ export default function FamilyOverview() {
                                             : 'bg-gray-50 text-gray-700 border-gray-200/80'
                                             }`}>
                                             <CheckCircle size={16} className={progressPercent === 100 && child.tasksTotal > 0 ? "text-green-600" : "text-gray-400"} />
-                                            {child.tasksCompleted} <span className="text-gray-400 font-normal mx-0.5">/</span> {child.tasksTotal}
+                                            {child.tasksTotal} <span className="text-gray-400 font-normal mx-0.5">/</span> {child.tasksCompleted}
                                         </div>
                                     </td>
 
@@ -200,16 +203,19 @@ export default function FamilyOverview() {
                     return (
                         <div key={child.id} className="p-5 flex flex-col gap-5 hover:bg-gray-50/30 transition-colors">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                                <Link
+                                    href={`/dashboard/tasks?child=${child.id}`}
+                                    className="flex items-center gap-3 group"
+                                >
                                     {child.avatar ? (
-                                        <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm" />
+                                        <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                     ) : (
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-black text-indigo-700 shadow-sm border border-indigo-200/50">
+                                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                             {child.name.charAt(0)}
                                         </div>
                                     )}
-                                    <span className="font-black text-gray-900 text-xl tracking-tight">{child.name}</span>
-                                </div>
+                                    <span className="font-black text-gray-900 text-xl tracking-tight group-hover:text-indigo-600 transition-colors">{child.name}</span>
+                                </Link>
                                 <div className="inline-flex items-center gap-1 font-black text-yellow-800 bg-yellow-50 px-3 py-1.5 rounded-xl border border-yellow-200 shadow-sm text-lg tabular-nums">
                                     {child.starsBalance}
                                     <Star size={16} className="fill-yellow-500 text-yellow-500" />
@@ -220,7 +226,7 @@ export default function FamilyOverview() {
                                 <div className="flex justify-between items-end mb-2">
                                     <span className="text-xs font-bold text-gray-500">התקדמות שבועית ({progressPercent}%)</span>
                                     <span className="text-sm font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-lg border border-gray-200 tabular-nums">
-                                        {child.tasksCompleted} <span className="text-gray-400 font-normal">/</span> {child.tasksTotal}
+                                        {child.tasksTotal} <span className="text-gray-400 font-normal">/</span> {child.tasksCompleted}
                                     </span>
                                 </div>
                                 <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex-1 border border-gray-200/50 relative shadow-inner">
