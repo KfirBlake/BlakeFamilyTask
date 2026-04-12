@@ -125,7 +125,7 @@ export default function FamilyOverview() {
                                             className="flex items-center gap-4 group"
                                         >
                                             {child.avatar ? (
-                                                <Image src={child.avatar} alt={child.name} width={12} height={12} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
+                                                <Image src={child.avatar} alt={child.name} width={48} height={48} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                             ) : (
                                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                                     {child.name.charAt(0)}
@@ -201,7 +201,7 @@ export default function FamilyOverview() {
                                     className="flex items-center gap-3 group"
                                 >
                                     {child.avatar ? (
-                                        <Image src={child.avatar} alt={child.name} width={24} height={24} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
+                                        <Image src={child.avatar} alt={child.name} width={48} height={48} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                     ) : (
                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                             {child.name.charAt(0)}
