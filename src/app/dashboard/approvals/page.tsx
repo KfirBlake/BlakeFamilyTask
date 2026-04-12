@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState, useRef } from 'react'
 import { Check, X, Clock, Star, GripVertical } from 'lucide-react'
@@ -110,31 +111,27 @@ const DualSwipeButton = ({ onApprove, onReject }: { onApprove: () => void, onRej
     )
 }
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function ApprovalsPage() {
-    const [tasks, setTasks] = useState<Task[]>([])
-    const [loading, setLoading] = useState(true)
     const supabase = createClient()
+    const queryClient = useQueryClient()
     const { userId, familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchPendingApprovals()
-    }, [familyId])
-
-    async function fetchPendingApprovals() {
-        setLoading(true)
-
-        const { data } = await supabase
-            .from('tasks')
-            .select('*, profiles:assigned_to(full_name, avatar_url)')
-            .eq('family_id', familyId)
-            .eq('status', 'waiting_approval')
-            .order('completed_at', { ascending: false })
-
-        if (data) {
-            setTasks(data as unknown as Task[])
-        }
-        setLoading(false)
-    }
+    const { data: tasks = [], isPending: loading } = useQuery<Task[]>({
+        queryKey: ['approvals', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
+            const { data } = await supabase
+                .from('tasks')
+                .select('*, profiles:assigned_to(full_name, avatar_url)')
+                .eq('family_id', familyId)
+                .eq('status', 'waiting_approval')
+                .order('completed_at', { ascending: false })
+            return (data as unknown as Task[]) || []
+        },
+        enabled: !!familyId
+    })
 
     async function handleApprove(taskId: string) {
         const { error } = await supabase
@@ -147,7 +144,8 @@ export default function ApprovalsPage() {
             .eq('id', taskId)
 
         if (!error) {
-            fetchPendingApprovals()
+            queryClient.invalidateQueries({ queryKey: ['approvals', familyId] })
+            queryClient.invalidateQueries({ queryKey: ['familyOverview', familyId] })
         } else {
             alert('Error approving task: ' + error.message)
         }
@@ -160,7 +158,7 @@ export default function ApprovalsPage() {
             .eq('id', taskId)
 
         if (!error) {
-            fetchPendingApprovals()
+            queryClient.invalidateQueries({ queryKey: ['approvals', familyId] })
         }
     }
 
@@ -184,7 +182,7 @@ export default function ApprovalsPage() {
                             <div className="flex items-start justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold overflow-hidden">
-                                        {task.profiles.avatar_url ? <img src={task.profiles.avatar_url} className="w-full h-full" /> : task.profiles.full_name[0]}
+                                        {task.profiles.avatar_url ? <Image src={task.profiles.avatar_url} alt={task.profiles.full_name} width={40} height={40} className="w-full h-full object-cover" /> : task.profiles.full_name[0]}
                                     </div>
                                     <div>
                                         <h3 className="font-bold text-gray-900">{task.title}</h3>

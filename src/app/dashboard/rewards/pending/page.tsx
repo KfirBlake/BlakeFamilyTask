@@ -16,22 +16,19 @@ type Purchase = {
     rewards_store: { name: string, icon_key: string, price: number }
 }
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function PendingRewardsPage() {
-    const [purchases, setPurchases] = useState<Purchase[]>([])
-    const [loading, setLoading] = useState(true)
     const [processingId, setProcessingId] = useState<string | null>(null)
 
     const supabase = createClient()
+    const queryClient = useQueryClient()
     const { familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchPending()
-    }, [familyId])
-
-    async function fetchPending() {
-        setLoading(true)
-
-        if (familyId) {
+    const { data: purchases = [], isPending: loading } = useQuery<Purchase[]>({
+        queryKey: ['reward_purchases', 'pending', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
             const { data } = await supabase
                 .from('reward_purchases')
                 .select(`
@@ -46,10 +43,10 @@ export default function PendingRewardsPage() {
                 .eq('status', 'pending')
                 .order('purchased_at', { ascending: false })
 
-            if (data) setPurchases(data as unknown as Purchase[])
-        }
-        setLoading(false)
-    }
+            return (data as unknown as Purchase[]) || []
+        },
+        enabled: !!familyId
+    })
 
     async function handleMarkRedeemed(id: string) {
         setProcessingId(id)
@@ -61,8 +58,9 @@ export default function PendingRewardsPage() {
             })
             .eq('id', id)
 
-        if (!error) await fetchPending()
-        else {
+        if (!error) {
+            queryClient.invalidateQueries({ queryKey: ['reward_purchases'] })
+        } else {
             console.error(error)
         }
         setProcessingId(null)

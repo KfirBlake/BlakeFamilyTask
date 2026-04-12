@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { UserPreferencesProvider } from '@/contexts/UserContext';
 import { InstallPrompt } from '@/components/InstallPrompt';
+import QueryProvider from '@/providers/QueryProvider';
 
 export default function RootLayout({
   children,
@@ -28,12 +29,14 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className={`font-sans antialiased text-gray-900 bg-gray-50`} suppressHydrationWarning>
-        <UserPreferencesProvider>
-          <div id="app-root" className="min-h-screen flex flex-col">
-            {children}
-            <InstallPrompt />
-          </div>
-        </UserPreferencesProvider>
+        <QueryProvider>
+          <UserPreferencesProvider>
+            <div id="app-root" className="min-h-screen flex flex-col">
+              {children}
+              <InstallPrompt />
+            </div>
+          </UserPreferencesProvider>
+        </QueryProvider>
       </body>
     </html>
   );

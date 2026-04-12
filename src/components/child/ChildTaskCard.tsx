@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion'
 import { Check, Star, Clock } from 'lucide-react'
-import confetti from 'canvas-confetti'
 import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import SwipeToComplete from './SwipeToComplete'
@@ -35,11 +34,14 @@ export default function ChildTaskCard({ task, onUpdate }: Props) {
 
         // Optimistic confetti explosion
         if (preferences.settings_confetti) {
-            confetti({
-                particleCount: 150,
-                spread: 100,
-                origin: { y: 0.5 },
-                colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+            import('canvas-confetti').then((mod) => {
+                const confetti = mod.default;
+                confetti({
+                    particleCount: 150,
+                    spread: 100,
+                    origin: { y: 0.5 },
+                    colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+                })
             })
         }
 

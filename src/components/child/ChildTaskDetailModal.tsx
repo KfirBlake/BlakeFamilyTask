@@ -5,7 +5,6 @@ import SwipeToComplete from './SwipeToComplete'
 import { createClient } from '@/utils/supabase/client'
 import { useState } from 'react'
 import IconRenderer from '../ui/IconRenderer'
-import confetti from 'canvas-confetti'
 import { useUserPreferences } from '@/contexts/UserContext'
 
 type Task = {
@@ -37,11 +36,14 @@ export default function ChildTaskDetailModal({ isOpen, onClose, task, onSuccess 
         setLoading(true)
 
         if (preferences.settings_confetti) {
-            confetti({
-                particleCount: 150,
-                spread: 100,
-                origin: { y: 0.5 },
-                colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+            import('canvas-confetti').then((mod) => {
+                const confetti = mod.default;
+                confetti({
+                    particleCount: 150,
+                    spread: 100,
+                    origin: { y: 0.5 },
+                    colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+                })
             })
         }
 

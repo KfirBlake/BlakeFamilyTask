@@ -1,7 +1,6 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import AvatarUpload from '@/components/profile/AvatarUpload'
@@ -9,40 +8,41 @@ import ProfileForm from '@/components/profile/ProfileForm'
 import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import StatsCard from '@/components/profile/StatsCard'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export default function ChildProfilePage() {
-    const [profile, setProfile] = useState<any>(null)
-    const [stats, setStats] = useState({ stars: 0, completed: 0 })
     const supabase = createClient()
     const router = useRouter()
     const { userId } = useUserPreferences()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        if (userId) fetchProfile()
-    }, [userId])
+    const { data: profileData, isPending } = useQuery({
+        queryKey: ['profiles', 'detail', userId],
+        queryFn: async () => {
+            if (!userId) return null
+            const { data } = await supabase
+                .from('profiles')
+                .select('*, date_of_birth')
+                .eq('id', userId)
+                .single()
 
-    async function fetchProfile() {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*, date_of_birth')
-            .eq('id', userId)
-            .single()
+            let completed = 0
+            if (data) {
+                const { count } = await supabase
+                    .from('tasks')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('assigned_to', userId)
+                    .eq('status', 'approved')
+                completed = count || 0
+            }
 
-        if (data) {
-            setProfile(data)
-            // Fetch completed tasks count
-            const { count } = await supabase
-                .from('tasks')
-                .select('*', { count: 'exact', head: true })
-                .eq('assigned_to', userId)
-                .eq('status', 'approved')
+            return { profile: data, stats: { stars: data?.stars_balance || 0, completed } }
+        },
+        enabled: !!userId
+    })
 
-            setStats({
-                stars: data.stars_balance || 0,
-                completed: count || 0
-            })
-        }
-    }
+    const profile = profileData?.profile
+    const stats = profileData?.stats || { stars: 0, completed: 0 }
 
     const handleSignOut = async () => {
         await supabase.auth.signOut()
@@ -53,7 +53,13 @@ export default function ChildProfilePage() {
         if (!profile) return
 
         // Update local state immediately
-        setProfile((prev: any) => ({ ...prev, avatar_url: url }))
+        queryClient.setQueryData(['profiles', 'detail', userId], (old: any) => {
+            if (!old) return old
+            return {
+                ...old,
+                profile: { ...old.profile, avatar_url: url }
+            }
+        })
 
         // Update in database
         await supabase

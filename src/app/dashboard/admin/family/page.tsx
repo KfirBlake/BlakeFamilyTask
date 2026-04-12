@@ -1,43 +1,47 @@
 'use client'
 
 import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import FamilyAssetsUpload from '@/components/family/FamilyAssetsUpload'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 export default function FamilyAdminPage() {
-    const [family, setFamily] = useState<any>(null)
     const [name, setName] = useState('')
-    const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const supabase = createClient()
     const { familyId } = useUserPreferences()
+    const queryClient = useQueryClient()
 
+    const { data: family, isPending: loading } = useQuery({
+        queryKey: ['family', familyId],
+        queryFn: async () => {
+            if (!familyId) return null
+            const { data } = await supabase
+                .from('families')
+                .select('*')
+                .eq('id', familyId)
+                .single()
+            return data
+        },
+        enabled: !!familyId,
+    })
+
+    // Populate name state when family data loads
     useEffect(() => {
-        if (familyId) fetchFamily()
-    }, [familyId])
-
-    async function fetchFamily() {
-        const { data: familyData } = await supabase
-            .from('families')
-            .select('*')
-            .eq('id', familyId)
-            .single()
-
-        if (familyData) {
-            setFamily(familyData)
-            setName(familyData.name)
-        }
-        setLoading(false)
-    }
+        if (family?.name) setName(family.name)
+    }, [family])
 
     const handleImageUpload = async (url: string) => {
         if (!family) return
 
-        // Update local state
-        setFamily((prev: any) => ({ ...prev, image_url: url }))
+        // Optimistic update
+        queryClient.setQueryData(['family', familyId], (old: any) => {
+            if (!old) return old
+            return { ...old, image_url: url }
+        })
 
         // Update in DB
         const { error } = await supabase
@@ -63,8 +67,7 @@ export default function FamilyAdminPage() {
             toast.error('שגיאה בעדכון שם המשפחה')
         } else {
             toast.success('שם המשפחה עודכן בהצלחה! ✨')
-            // Optionally force a refresh to update sidebar, but context/subscription would be better
-            window.location.reload()
+            queryClient.invalidateQueries({ queryKey: ['family', familyId] })
         }
         setSaving(false)
     }

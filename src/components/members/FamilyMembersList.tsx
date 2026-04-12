@@ -1,9 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import { useEffect, useState } from 'react'
 import { Plus, User, Trash2 } from 'lucide-react'
-import AddMemberModal from '@/components/members/AddMemberModal'
+import dynamic from 'next/dynamic'
+const AddMemberModal = dynamic(() => import('@/components/members/AddMemberModal'))
 
 type Profile = {
     id: string
@@ -13,27 +15,23 @@ type Profile = {
     stars_balance: number
 }
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function FamilyMembersList() {
-    const [members, setMembers] = useState<Profile[]>([])
-    const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const supabase = createClient()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        fetchMembers()
-    }, [])
-
-    async function fetchMembers() {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: true })
-
-        if (data) {
-            setMembers(data)
+    const { data: members = [], isPending: loading } = useQuery<Profile[]>({
+        queryKey: ['family_members'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('created_at', { ascending: true })
+            return data || []
         }
-        setLoading(false)
-    }
+    })
 
     return (
         <div className="space-y-6">
@@ -63,7 +61,7 @@ export default function FamilyMembersList() {
                         >
                             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg">
                                 {member.avatar_url ? (
-                                    <img src={member.avatar_url} alt={member.full_name} className="w-full h-full rounded-full object-cover" />
+                                    <Image src={member.avatar_url} alt={member.full_name} width={48} height={48} className="w-full h-full rounded-full object-cover" />
                                 ) : (
                                     member.full_name[0]
                                 )}
@@ -90,7 +88,7 @@ export default function FamilyMembersList() {
             <AddMemberModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSuccess={fetchMembers}
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ['family_members'] })}
             />
         </div>
     )

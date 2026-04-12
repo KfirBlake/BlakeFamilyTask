@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
-import EmojiPicker from 'emoji-picker-react'
+import dynamic from 'next/dynamic'
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false })
 import * as LucideIcons from 'lucide-react'
 import { Search, Upload, Image as ImageIcon, Smile, Grid, ChevronDown } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'

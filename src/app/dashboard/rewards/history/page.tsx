@@ -15,10 +15,9 @@ type Purchase = {
     rewards_store: { name: string, icon_key: string, price: number }
 }
 
-export default function HistoryRewardsPage() {
-    const [purchases, setPurchases] = useState<Purchase[]>([])
-    const [loading, setLoading] = useState(true)
+import { useQuery } from '@tanstack/react-query'
 
+export default function HistoryRewardsPage() {
     // History Filters
     const [filterChild, setFilterChild] = useState('all')
     const [filterReward, setFilterReward] = useState('all')
@@ -27,14 +26,10 @@ export default function HistoryRewardsPage() {
     const supabase = createClient()
     const { familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchHistory()
-    }, [familyId])
-
-    async function fetchHistory() {
-        setLoading(true)
-
-        if (familyId) {
+    const { data: purchases = [], isPending: loading } = useQuery<Purchase[]>({
+        queryKey: ['reward_purchases', 'history', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
             const { data } = await supabase
                 .from('reward_purchases')
                 .select(`
@@ -49,10 +44,10 @@ export default function HistoryRewardsPage() {
                 .eq('status', 'redeemed')
                 .order('redeemed_at', { ascending: false })
 
-            if (data) setPurchases(data as unknown as Purchase[])
-        }
-        setLoading(false)
-    }
+            return (data as unknown as Purchase[]) || []
+        },
+        enabled: !!familyId
+    })
 
     const redeemedHistory = useMemo(() => {
         let items = [...purchases]

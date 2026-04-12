@@ -9,6 +9,7 @@ import { User } from 'lucide-react'
 import { useTouchdownCelebration } from '@/hooks/useTouchdownCelebration'
 import TouchdownCelebration from '@/components/child/TouchdownCelebration'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type Task = {
     id: string
@@ -21,48 +22,44 @@ type Task = {
 }
 
 export default function ChildDashboardPage() {
-    const [tasks, setTasks] = useState<Task[]>([])
-    const [loading, setLoading] = useState(true)
-    const [profile, setProfile] = useState<any>(null)
     const supabase = createClient()
     const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'waiting_approval'>('pending')
     const { userId } = useUserPreferences()
-    const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, new Date(), profile?.id)
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        if (userId) fetchData()
-    }, [userId])
+    const { data: profile } = useQuery({
+        queryKey: ['profiles', userId],
+        queryFn: async () => {
+            if (!userId) return null
+            const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
+            return data || null
+        },
+        enabled: !!userId,
+    })
 
-    async function fetchData() {
-        setLoading(true)
-
-        if (userId) {
-            // Fetch Profile
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single()
-
-            setProfile(profile)
-
-            // Fetch tasks for the current week (Sunday to Saturday)
+    const { data: tasks = [], isPending: loading } = useQuery<Task[]>({
+        queryKey: ['tasks', userId, 'week'],
+        queryFn: async () => {
+            if (!userId) return []
             const now = new Date()
             const weekStart = format(startOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd')
             const weekEnd = format(endOfWeek(now, { weekStartsOn: 0 }), 'yyyy-MM-dd')
 
-            const { data: tasks } = await supabase
+            const { data } = await supabase
                 .from('tasks')
                 .select('*')
                 .eq('assigned_to', userId)
                 .gte('due_date', weekStart)
                 .lte('due_date', weekEnd)
+            return (data as Task[]) || []
+        },
+        enabled: !!userId,
+    })
 
-            if (tasks) {
-                setTasks(tasks)
-            }
-        }
-        setLoading(false)
+    const { showTouchdown, setShowTouchdown } = useTouchdownCelebration(tasks, new Date(), profile?.id)
+
+    const handleUpdate = () => {
+        queryClient.invalidateQueries({ queryKey: ['tasks', userId] })
     }
 
     const filteredTasks = tasks.filter(task => {
@@ -125,11 +122,11 @@ export default function ChildDashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredTasks.length > 0 ? (
                     filteredTasks.map(task => (
-                        <ChildTaskCard
-                            key={task.id}
-                            task={task}
-                            onUpdate={fetchData}
-                        />
+                            <ChildTaskCard
+                                key={task.id}
+                                task={task}
+                                onUpdate={handleUpdate}
+                            />
                     ))
                 ) : (
                     <div className="col-span-1 md:col-span-2 text-center py-20 opacity-50 bg-white rounded-3xl border border-gray-100 shadow-sm mx-auto w-full max-w-sm">

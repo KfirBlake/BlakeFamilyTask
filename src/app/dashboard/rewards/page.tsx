@@ -14,36 +14,34 @@ type Reward = {
     icon_key: string
 }
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function RewardsPage() {
-    const [rewards, setRewards] = useState<Reward[]>([])
-    const [loading, setLoading] = useState(true)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [editingReward, setEditingReward] = useState<Reward | null>(null)
 
     const supabase = createClient()
+    const queryClient = useQueryClient()
     const { familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchRewards()
-    }, [familyId])
-
-    async function fetchRewards() {
-        setLoading(true)
-
-        const { data } = await supabase
-            .from('rewards_store')
-            .select('*')
-            .eq('family_id', familyId)
-            .order('price', { ascending: true })
-
-        if (data) setRewards(data)
-        setLoading(false)
-    }
+    const { data: rewards = [], isPending: loading } = useQuery<Reward[]>({
+        queryKey: ['rewards_store', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
+            const { data } = await supabase
+                .from('rewards_store')
+                .select('*')
+                .eq('family_id', familyId)
+                .order('price', { ascending: true })
+            return data || []
+        },
+        enabled: !!familyId
+    })
 
     async function handleDelete(id: string) {
         if (!confirm('האם אתה בטוח שברצונך למחוק פרס זה? חלק מהיסטוריית הרכישות עשויה להיפגע.')) return
         const { error } = await supabase.from('rewards_store').delete().eq('id', id)
-        if (!error) fetchRewards()
+        if (!error) queryClient.invalidateQueries({ queryKey: ['rewards_store', familyId] })
     }
 
     return (
@@ -112,7 +110,7 @@ export default function RewardsPage() {
                         setIsModalOpen(false)
                         setEditingReward(null)
                     }}
-                    onSuccess={fetchRewards}
+                    onSuccess={() => queryClient.invalidateQueries({ queryKey: ['rewards_store', familyId] })}
                     supabase={supabase}
                     familyId={familyId}
                 />

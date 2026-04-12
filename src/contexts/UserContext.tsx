@@ -1,7 +1,8 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useEffect, ReactNode } from 'react'
 import { createClient } from '@/utils/supabase/client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 // Module-level flag to prevent double-init across React StrictMode double-invocations
 let oneSignalInitialized = false
@@ -37,45 +38,42 @@ const UserContext = createContext<UserContextType>({
 })
 
 export function UserPreferencesProvider({ children }: { children: ReactNode }) {
-    const [userId, setUserId] = useState<string | null>(null)
-    const [familyId, setFamilyId] = useState<string | null>(null)
-    const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences)
-    const [loading, setLoading] = useState(true)
     const supabase = createClient()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        let mounted = true
-
-        async function fetchPrefs() {
+    const { data: sessionUser, isPending: sessionPending } = useQuery({
+        queryKey: ['session_user'],
+        queryFn: async () => {
             const { data: { session } } = await supabase.auth.getSession()
-            if (!session?.user) {
-                if (mounted) setLoading(false)
-                return
-            }
+            return session?.user || null
+        }
+    })
 
+    const userId = sessionUser?.id || null
+
+    const { data: profile, isPending: profilePending } = useQuery({
+        queryKey: ['profiles', userId, 'preferences'],
+        queryFn: async () => {
+            if (!userId) return null
             const { data } = await supabase
                 .from('profiles')
                 .select('family_id, settings_sound, settings_confetti, settings_touchdown, settings_dark_mode')
-                .eq('id', session.user.id)
+                .eq('id', userId)
                 .single()
+            return data
+        },
+        enabled: !!userId
+    })
 
-            if (data && mounted) {
-                setUserId(session.user.id)
-                setFamilyId(data.family_id ?? null)
-                setPreferences({
-                    settings_sound: data.settings_sound ?? true,
-                    settings_confetti: data.settings_confetti ?? true,
-                    settings_touchdown: data.settings_touchdown ?? true,
-                    settings_dark_mode: data.settings_dark_mode ?? false,
-                })
-            }
-            if (mounted) setLoading(false)
-        }
+    const preferences = profile ? {
+        settings_sound: profile.settings_sound ?? true,
+        settings_confetti: profile.settings_confetti ?? true,
+        settings_touchdown: profile.settings_touchdown ?? true,
+        settings_dark_mode: profile.settings_dark_mode ?? false,
+    } : defaultPreferences
 
-        fetchPrefs()
-
-        return () => { mounted = false }
-    }, [])
+    const familyId = profile?.family_id ?? null
+    const loading = sessionPending || (!!userId && profilePending)
 
     useEffect(() => {
         // Apply dark mode class globally when preference dynamically changes
@@ -143,8 +141,11 @@ export function UserPreferencesProvider({ children }: { children: ReactNode }) {
     const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
         if (!userId) return
 
-        // Optimistic UI update
-        setPreferences(prev => ({ ...prev, ...newPrefs }))
+        // Optimistic UI update using QueryClient
+        queryClient.setQueryData(['profiles', userId, 'preferences'], (old: any) => {
+            if (!old) return old
+            return { ...old, ...newPrefs }
+        })
 
         // Background DB sync
         await supabase

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import confetti from 'canvas-confetti'
+
 import { X } from 'lucide-react'
 import { useUserPreferences } from '@/contexts/UserContext'
 
@@ -31,13 +31,15 @@ export default function TouchdownCelebration({ onClose }: Props) {
 
         // Fire confetti
         if (preferences.settings_confetti) {
-            const end = Date.now() + 3500
-            const colors = ['#AA0000', '#B3995D']
+            import('canvas-confetti').then((mod) => {
+                const confetti = mod.default;
+                const end = Date.now() + 3500
+                const colors = ['#AA0000', '#B3995D']
 
-                ; (function frame() {
-                    confetti({
-                        particleCount: 7,
-                        angle: 60,
+                    ; (function frame() {
+                        confetti({
+                            particleCount: 7,
+                            angle: 60,
                         spread: 55,
                         origin: { x: 0 },
                         colors: colors
@@ -50,10 +52,11 @@ export default function TouchdownCelebration({ onClose }: Props) {
                         colors: colors
                     })
 
-                    if (Date.now() < end) {
-                        requestAnimationFrame(frame)
-                    }
-                }())
+                        if (Date.now() < end) {
+                            requestAnimationFrame(frame)
+                        }
+                    }())
+            })
         }
 
         // Play Sound

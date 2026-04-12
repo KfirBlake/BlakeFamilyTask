@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { Trophy, Star, Clock, CheckCircle } from 'lucide-react'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery } from '@tanstack/react-query'
 
 // types
 type ChildStats = {
@@ -20,73 +21,65 @@ type ChildStats = {
 }
 
 export default function FamilyOverview() {
-    const [childrenStats, setChildrenStats] = useState<ChildStats[]>([])
-    const [loading, setLoading] = useState(true)
-
     const supabase = createClient()
     const { familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchData()
-    }, [familyId])
+    const { data: childrenStats = [], isPending: loading } = useQuery({
+        queryKey: ['familyOverview', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
 
-    async function fetchData() {
-        setLoading(true)
-        if (!familyId) return
+            // Fetch children
+            const { data: children } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('family_id', familyId)
+                .eq('role', 'child')
 
-        // Fetch children
-        const { data: children } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('family_id', familyId)
-            .eq('role', 'child')
+            if (!children) return []
 
-        if (!children) {
-            setLoading(false)
-            return
-        }
+            const now = new Date()
+            const start = startOfWeek(now, { weekStartsOn: 0 }) // Sunday start
+            const end = endOfWeek(now, { weekStartsOn: 0 })
 
-        const now = new Date()
-        const start = startOfWeek(now, { weekStartsOn: 0 }) // Sunday start
-        const end = endOfWeek(now, { weekStartsOn: 0 })
+            // Fetch tasks
+            const { data: tasks } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('family_id', familyId)
+                .gte('due_date', format(start, 'yyyy-MM-dd'))
+                .lte('due_date', format(end, 'yyyy-MM-dd'))
 
-        // Fetch tasks
-        const { data: tasks } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('family_id', familyId)
-            .gte('due_date', format(start, 'yyyy-MM-dd'))
-            .lte('due_date', format(end, 'yyyy-MM-dd'))
+            const stats: ChildStats[] = children.map(child => {
+                const childTasks = tasks?.filter(t => t.assigned_to === child.id) || []
 
-        const stats: ChildStats[] = children.map(child => {
-            const childTasks = tasks?.filter(t => t.assigned_to === child.id) || []
+                const total = childTasks.length
+                const approved = childTasks.filter(t => t.status === 'approved').length
+                const pendingApproval = childTasks.filter(t => t.status === 'waiting_approval').length
+                const completed = approved + pendingApproval
 
-            const total = childTasks.length
-            const approved = childTasks.filter(t => t.status === 'approved').length
-            const pendingApproval = childTasks.filter(t => t.status === 'waiting_approval').length
-            const completed = approved + pendingApproval
+                return {
+                    id: child.id,
+                    name: child.display_name || child.full_name || 'ילד',
+                    avatar: child.avatar_url,
+                    starsBalance: child.stars_balance || 0,
+                    tasksTotal: total,
+                    tasksCompleted: completed,
+                    tasksApproved: approved,
+                    tasksPendingApproval: pendingApproval
+                }
+            })
 
-            return {
-                id: child.id,
-                name: child.display_name || child.full_name || 'ילד',
-                avatar: child.avatar_url,
-                starsBalance: child.stars_balance || 0,
-                tasksTotal: total,
-                tasksCompleted: completed,
-                tasksApproved: approved,
-                tasksPendingApproval: pendingApproval
-            }
-        })
+            // Sort by pending approvals descending to bring attention, then by total completed
+            stats.sort((a, b) => {
+                if (b.tasksPendingApproval !== a.tasksPendingApproval) return b.tasksPendingApproval - a.tasksPendingApproval
+                return b.tasksCompleted - a.tasksCompleted
+            })
 
-        // Sort by pending approvals descending to bring attention, then by total completed
-        stats.sort((a, b) => {
-            if (b.tasksPendingApproval !== a.tasksPendingApproval) return b.tasksPendingApproval - a.tasksPendingApproval
-            return b.tasksCompleted - a.tasksCompleted
-        })
-
-        setChildrenStats(stats)
-        setLoading(false)
-    }
+            return stats
+        },
+        enabled: !!familyId,
+    })
 
     if (loading) {
         return <div className="animate-pulse bg-white p-6 rounded-2xl border border-gray-100 h-64"></div>
@@ -132,7 +125,7 @@ export default function FamilyOverview() {
                                             className="flex items-center gap-4 group"
                                         >
                                             {child.avatar ? (
-                                                <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
+                                                <Image src={child.avatar} alt={child.name} width={12} height={12} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                             ) : (
                                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                                     {child.name.charAt(0)}
@@ -208,7 +201,7 @@ export default function FamilyOverview() {
                                     className="flex items-center gap-3 group"
                                 >
                                     {child.avatar ? (
-                                        <img src={child.avatar} alt={child.name} className="w-12 h-12 rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
+                                        <Image src={child.avatar} alt={child.name} width={24} height={24} className="w-full h-full rounded-full border-2 border-gray-100 object-cover shadow-sm group-hover:border-indigo-300 transition-colors" />
                                     ) : (
                                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-black text-indigo-700 shadow-sm border border-indigo-200/50 group-hover:border-indigo-400 transition-colors">
                                             {child.name.charAt(0)}

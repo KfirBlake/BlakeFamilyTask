@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Star, Gift, ShoppingBag, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import confetti from 'canvas-confetti'
 import IconRenderer from '@/components/ui/IconRenderer'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type Reward = {
     id: string
@@ -30,70 +30,73 @@ type RewardPurchase = {
 }
 
 export default function ChildRewardsPage() {
-    const [rewards, setRewards] = useState<Reward[]>([])
-    const [purchases, setPurchases] = useState<RewardPurchase[]>([])
-    const [balance, setBalance] = useState(0)
-    const [childName, setChildName] = useState('')
-    const [loading, setLoading] = useState(true)
     const [redeemingId, setRedeemingId] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
     const { preferences, userId, familyId } = useUserPreferences()
-
     const supabase = createClient()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        if (userId) fetchData()
-    }, [userId])
-
-    async function fetchData() {
-        setLoading(true)
-
-        if (userId) {
-            // Fetch Profile for Balance
-            const { data: profile } = await supabase
+    // Query 1: Child Profile (for balance & name)
+    const { data: profile, isPending: profilePending } = useQuery({
+        queryKey: ['profiles', 'balance', userId],
+        queryFn: async () => {
+            if (!userId) return null
+            const { data } = await supabase
                 .from('profiles')
                 .select('stars_balance, full_name, family_id')
                 .eq('id', userId)
                 .single()
+            return data
+        },
+        enabled: !!userId
+    })
 
-            if (profile) {
-                setBalance(profile.stars_balance)
-                setChildName(profile.full_name)
+    const balance = profile?.stars_balance || 0
+    const childName = profile?.full_name || ''
 
-                // Fetch Rewards
-                const { data: rewardsData } = await supabase
-                    .from('rewards_store')
-                    .select('*')
-                    .eq('family_id', profile.family_id)
-                    .order('price', { ascending: true })
+    // Query 2: Available Rewards Store
+    const { data: rewards = [], isPending: rewardsPending } = useQuery({
+        queryKey: ['rewards_store', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
+            const { data } = await supabase
+                .from('rewards_store')
+                .select('*')
+                .eq('family_id', familyId)
+                .order('price', { ascending: true })
+            return data || []
+        },
+        enabled: !!familyId
+    })
 
-                setRewards(rewardsData || [])
-
-                // Fetch Purchases
-                const { data: purchasesData } = await supabase
-                    .from('reward_purchases')
-                    .select(`
+    // Query 3: Child's Purchases History
+    const { data: purchases = [], isPending: purchasesPending } = useQuery<RewardPurchase[]>({
+        queryKey: ['reward_purchases', userId],
+        queryFn: async () => {
+            if (!userId) return []
+            const { data } = await supabase
+                .from('reward_purchases')
+                .select(`
+                    id,
+                    status,
+                    purchased_at,
+                    redeemed_at,
+                    rewards_store:reward_id (
                         id,
-                        status,
-                        purchased_at,
-                        redeemed_at,
-                        rewards_store:reward_id (
-                            id,
-                            name,
-                            icon_key,
-                            description
-                        )
-                    `)
-                    .eq('child_id', userId)
-                    .order('purchased_at', { ascending: false })
+                        name,
+                        icon_key,
+                        description
+                    )
+                `)
+                .eq('child_id', userId)
+                .order('purchased_at', { ascending: false })
+            return (data as unknown as RewardPurchase[]) || []
+        },
+        enabled: !!userId
+    })
 
-                // Supabase joins can return arrays or objects. Safe casting:
-                setPurchases((purchasesData as unknown as RewardPurchase[]) || [])
-            }
-        }
-        setLoading(false)
-    }
+    const loading = profilePending || rewardsPending || purchasesPending
 
     async function handleRedeem(reward: Reward) {
         if (balance < reward.price) {
@@ -140,20 +143,27 @@ export default function ChildRewardsPage() {
             setError('משהו השתבש... נסה שוב.')
         } else {
             // Success!
-            setBalance(prev => prev - reward.price) // Optimistic update
+            queryClient.setQueryData(['profiles', 'balance', userId], (old: any) => {
+                if (!old) return old
+                return { ...old, stars_balance: old.stars_balance - reward.price }
+            })
             setSuccessMsg(`תהנה! הזמנת את ${reward.name}`)
 
             if (preferences.settings_confetti) {
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#FFD700', '#FFA500', '#FF4500']
+                import('canvas-confetti').then((mod) => {
+                    const confetti = mod.default;
+                    confetti({
+                        particleCount: 150,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: ['#FFD700', '#FFA500', '#FF4500']
+                    })
                 })
             }
 
-            // Re-fetch to ensure sync
-            fetchData()
+            // Sync with backend gracefully
+            queryClient.invalidateQueries({ queryKey: ['profiles', 'balance', userId] })
+            queryClient.invalidateQueries({ queryKey: ['reward_purchases', userId] })
         }
 
         setRedeemingId(null)

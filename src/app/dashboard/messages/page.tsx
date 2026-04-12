@@ -14,45 +14,35 @@ interface FamilyMessage {
     created_by: string
 }
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function MessagesAdminPage() {
     const [newMessage, setNewMessage] = useState('')
-    const [messages, setMessages] = useState<FamilyMessage[]>([])
-    const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [settingActiveId, setSettingActiveId] = useState<string | null>(null)
     const supabase = createClient()
+    const queryClient = useQueryClient()
     const { userId, familyId } = useUserPreferences()
 
-    useEffect(() => {
-        if (familyId) fetchData()
-    }, [familyId])
+    const { data: messages = [], isPending: loading } = useQuery<FamilyMessage[]>({
+        queryKey: ['family_messages', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
+            const { data, error } = await supabase
+                .from('family_messages')
+                .select('*')
+                .eq('family_id', familyId)
+                .order('created_at', { ascending: false })
 
-    const fetchData = async () => {
-        setLoading(true)
-        if (familyId) {
-            await fetchMessages(familyId)
-        }
-        setLoading(false)
-    }
-
-    const fetchMessages = async (fId: string) => {
-        const { data, error } = await supabase
-            .from('family_messages')
-            .select('*')
-            .eq('family_id', fId)
-            // We want to skip empty messages (clears) mostly, but let's fetch all and filter client side
-            .order('created_at', { ascending: false })
-
-        if (error) {
-            toast.error('שגיאה בטעינת היסטוריית הודעות')
-        } else {
-            // Filter out the 'clear' actions (empty strings) from history if desired, 
-            // but we might want them. Let's filter them so the history table is only actual messages.
-            const validMessages = (data as FamilyMessage[]).filter(m => m.message.trim() !== '')
-            setMessages(validMessages)
-        }
-    }
+            if (error) {
+                toast.error('שגיאה בטעינת היסטוריית הודעות')
+                return []
+            }
+            return (data as FamilyMessage[]).filter(m => m.message.trim() !== '')
+        },
+        enabled: !!familyId
+    })
 
     const handleSaveNewMessage = async () => {
         if (!familyId || !newMessage.trim()) return
@@ -73,7 +63,7 @@ export default function MessagesAdminPage() {
         } else {
             toast.success('הודעה חדשה נוספה! 📝')
             setNewMessage('')
-            await fetchMessages(familyId) // Refresh list
+            queryClient.invalidateQueries({ queryKey: ['family_messages', familyId] })
         }
         setSaving(false)
     }
@@ -96,7 +86,7 @@ export default function MessagesAdminPage() {
             toast.error('שגיאה בהגדרת ההודעה כפעילה')
         } else {
             toast.success('ההודעה עודכנה כפעילה! ✨')
-            await fetchMessages(familyId) // Refresh to show it at the top
+            queryClient.invalidateQueries({ queryKey: ['family_messages', familyId] })
         }
         setSettingActiveId(null)
     }

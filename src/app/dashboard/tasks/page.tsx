@@ -1,12 +1,15 @@
 'use client'
 
+import Image from 'next/image'
 import { createClient } from '@/utils/supabase/client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import WeeklyChildTaskCalendar from '@/components/tasks/WeeklyChildTaskCalendar'
-import CreateTaskModal from '@/components/tasks/CreateTaskModal'
+import dynamic from 'next/dynamic'
+const CreateTaskModal = dynamic(() => import('@/components/tasks/CreateTaskModal'))
 import { useUserPreferences } from '@/contexts/UserContext'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type Profile = {
     id: string
@@ -16,34 +19,31 @@ type Profile = {
 }
 
 export default function TasksPage() {
-    const [children, setChildren] = useState<Profile[]>([])
-    const [selectedChildId, setSelectedChildId] = useState<string | null>(null)
+    const [selectedChildIdState, setSelectedChildIdState] = useState<string | null>(null)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-    const [loading, setLoading] = useState(true)
     const supabase = createClient()
     const { familyId } = useUserPreferences()
     const searchParams = useSearchParams()
     const preselectedChildId = searchParams.get('child')
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        if (familyId) fetchChildren()
-    }, [familyId])
+    const { data: children = [], isPending: loading } = useQuery({
+        queryKey: ['profiles', 'children', familyId],
+        queryFn: async () => {
+            if (!familyId) return []
+            const { data: kids } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('family_id', familyId)
+                .eq('role', 'child')
+            return kids || []
+        },
+        enabled: !!familyId,
+    })
 
-    async function fetchChildren() {
-        const { data: kids } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('family_id', familyId)
-            .eq('role', 'child')
-
-        if (kids && kids.length > 0) {
-            setChildren(kids)
-            // Pre-select from ?child= query param if valid, otherwise default to first child
-            const match = preselectedChildId && kids.find(k => k.id === preselectedChildId)
-            setSelectedChildId(match ? match.id : kids[0].id)
-        }
-        setLoading(false)
-    }
+    const match = preselectedChildId && children.some(k => k.id === preselectedChildId)
+    const defaultChildId = match ? preselectedChildId : (children.length > 0 ? children[0].id : null)
+    const selectedChildId = selectedChildIdState || defaultChildId
 
     return (
         <div className="space-y-6">
@@ -74,7 +74,7 @@ export default function TasksPage() {
                         {children.map(child => (
                             <button
                                 key={child.id}
-                                onClick={() => setSelectedChildId(child.id)}
+                                onClick={() => setSelectedChildIdState(child.id)}
                                 className={`
                   flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap transition-all
                   ${selectedChildId === child.id
@@ -83,7 +83,7 @@ export default function TasksPage() {
                 `}
                             >
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${selectedChildId === child.id ? 'bg-white/20' : 'bg-gray-100'}`}>
-                                    {child.avatar_url ? <img src={child.avatar_url} className="w-full h-full rounded-full" /> : child.full_name[0]}
+                                    {child.avatar_url ? <Image src={child.avatar_url} alt={child.full_name} width={24} height={24} className="w-full h-full rounded-full object-cover" /> : child.full_name[0]}
                                 </div>
                                 <span className="font-medium text-sm">{child.full_name}</span>
                             </button>
@@ -106,9 +106,8 @@ export default function TasksPage() {
                             onClose={() => setIsCreateModalOpen(false)}
                             childId={selectedChildId}
                             onSuccess={() => {
-                                // Trigger refresh in calendar (via event or just simple page refresh for MVP)
-                                window.location.reload()
-                                // Better: Pass a refresh trigger to TaskCalendar, but reload is robust for MVP
+                                queryClient.invalidateQueries({ queryKey: ["tasks", selectedChildId] })
+                                setIsCreateModalOpen(false)
                             }}
                         />
                     )}

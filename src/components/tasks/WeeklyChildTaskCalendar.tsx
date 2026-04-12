@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import {
     format,
@@ -20,6 +20,7 @@ import CreateTaskModal from './CreateTaskModal'
 import CreateChildTaskModal from './CreateChildTaskModal'
 import ChildTaskDetailModal from '../child/ChildTaskDetailModal'
 import IconRenderer from '../ui/IconRenderer'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type Task = {
     id: string
@@ -43,52 +44,41 @@ const EMOJI_ICONS = ['🧹', '🛏️', '🍽️', '🐶', '📚', '🦷', '🧺
 
 export default function WeeklyChildTaskCalendar({ childId, childName, childAvatar, isReadOnly = false }: Props) {
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }))
-    const [tasks, setTasks] = useState<Task[]>([])
-    const [loading, setLoading] = useState(true)
     const [selectedDay, setSelectedDay] = useState<Date>(new Date())
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isChildCreateModalOpen, setIsChildCreateModalOpen] = useState(false)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
     const [viewingTask, setViewingTask] = useState<Task | null>(null)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
-    const [weeklyStats, setWeeklyStats] = useState({ total: 0, completed: 0, percentage: 0 })
-
 
     const supabase = createClient()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        fetchTasks()
-    }, [childId, currentWeekStart])
+    const { data: tasks = [], isLoading: loading } = useQuery({
+        queryKey: ['tasks', childId, format(currentWeekStart, 'yyyy-MM-dd')],
+        queryFn: async () => {
+            const start = startOfWeek(currentWeekStart, { weekStartsOn: 0 })
+            const end = endOfWeek(currentWeekStart, { weekStartsOn: 0 })
 
-    async function fetchTasks() {
-        setLoading(true)
-        const start = startOfWeek(currentWeekStart, { weekStartsOn: 0 })
-        const end = endOfWeek(currentWeekStart, { weekStartsOn: 0 })
+            const { data, error } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('assigned_to', childId)
+                .gte('due_date', format(start, 'yyyy-MM-dd'))
+                .lte('due_date', format(end, 'yyyy-MM-dd'))
+                .order('due_date', { ascending: true })
 
-        const { data, error } = await supabase
-            .from('tasks')
-            .select('*')
-            .eq('assigned_to', childId)
-            .gte('due_date', format(start, 'yyyy-MM-dd'))
-            .lte('due_date', format(end, 'yyyy-MM-dd'))
-            .order('due_date', { ascending: true })
-
-        if (error) {
-            console.error('Error fetching tasks:', error)
-        } else {
-            setTasks(data || [])
-            calculateStats(data || [])
+            if (error) console.error('Error fetching tasks:', error)
+            return data || []
         }
-        setLoading(false)
-    }
+    })
 
-    function calculateStats(weekTasks: Task[]) {
-        const total = weekTasks.length
-        // Count as completed if approved OR waiting for approval (child marked as done)
-        const completed = weekTasks.filter(t => t.status === 'approved' || t.status === 'waiting_approval').length
+    const weeklyStats = useMemo(() => {
+        const total = tasks.length
+        const completed = tasks.filter(t => t.status === 'approved' || t.status === 'waiting_approval').length
         const percentage = total === 0 ? 0 : Math.round((completed / total) * 100)
-        setWeeklyStats({ total, completed, percentage })
-    }
+        return { total, completed, percentage }
+    }, [tasks])
 
     function navigateWeek(direction: 'prev' | 'next') {
         if (direction === 'prev') setCurrentWeekStart(prev => subWeeks(prev, 1))
@@ -96,7 +86,9 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
     }
 
     function handleTaskAdded() {
-        fetchTasks()
+        queryClient.invalidateQueries({ queryKey: ['tasks', childId] })
+        // Also invalidate familyOverview to stay synced
+        queryClient.invalidateQueries({ queryKey: ['familyOverview'] })
     }
 
     const weekDays = eachDayOfInterval({

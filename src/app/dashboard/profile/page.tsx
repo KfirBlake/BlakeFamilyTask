@@ -8,30 +8,35 @@ import UserPreferencesForm from '@/components/profile/UserPreferencesForm'
 import { UserCircle } from 'lucide-react'
 import { useUserPreferences } from '@/contexts/UserContext'
 
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
 export default function ParentProfilePage() {
-    const [profile, setProfile] = useState<any>(null)
     const supabase = createClient()
     const { userId } = useUserPreferences()
+    const queryClient = useQueryClient()
 
-    useEffect(() => {
-        if (userId) fetchProfile()
-    }, [userId])
-
-    async function fetchProfile() {
-        const { data } = await supabase
-            .from('profiles')
-            .select('*, date_of_birth')
-            .eq('id', userId)
-            .single()
-
-        if (data) setProfile(data)
-    }
+    const { data: profile, isPending } = useQuery({
+        queryKey: ['profiles', 'detail', userId],
+        queryFn: async () => {
+            if (!userId) return null
+            const { data } = await supabase
+                .from('profiles')
+                .select('*, date_of_birth')
+                .eq('id', userId)
+                .single()
+            return data
+        },
+        enabled: !!userId
+    })
 
     const handleAvatarUpdate = async (url: string) => {
         if (!profile) return
 
         // Update local state immediately
-        setProfile((prev: any) => ({ ...prev, avatar_url: url }))
+        queryClient.setQueryData(['profiles', 'detail', userId], (old: any) => {
+            if (!old) return old
+            return { ...old, avatar_url: url }
+        })
 
         // Update in database
         await supabase
@@ -40,7 +45,7 @@ export default function ParentProfilePage() {
             .eq('id', profile.id)
     }
 
-    if (!profile) {
+    if (isPending || !profile) {
         return (
             <div className="flex items-center justify-center h-full min-h-[500px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
