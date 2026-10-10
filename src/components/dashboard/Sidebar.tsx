@@ -15,7 +15,9 @@ import {
     UserCircle,
     MessageSquare,
     Clock,
-    History
+    History,
+    CalendarRange,
+    FolderKanban
 } from 'lucide-react'
 import { signout } from '@/app/login/actions'
 import clsx from 'clsx'
@@ -53,7 +55,17 @@ export default function DashboardSidebar({ children, userProfile }: Props) {
     const familyName = userProfile?.family?.name || 'FamilyTask'
     const familyImage = userProfile?.family?.image_url
 
-    const navigation = [...baseNavigation]
+    const isParent = userProfile?.role === 'admin_parent' || userProfile?.role === 'parent'
+
+    const navigation: { name: string; href: string; icon: any }[] = []
+    baseNavigation.forEach(item => {
+        navigation.push(item)
+        if (item.href === '/dashboard/tasks' && isParent) {
+            navigation.push({ name: 'תכנון שבועי', href: '/dashboard/tasks/planning', icon: CalendarRange })
+            navigation.push({ name: 'בנק משימות', href: '/dashboard/tasks/bank', icon: FolderKanban })
+        }
+    })
+
     if (userProfile?.role === 'admin_parent') {
         navigation.push({ name: 'הגדרות משפחה', href: '/dashboard/admin/family', icon: Settings })
     }

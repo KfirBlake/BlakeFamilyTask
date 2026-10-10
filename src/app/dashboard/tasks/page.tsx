@@ -1,10 +1,11 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus } from 'lucide-react'
+import { Plus, CalendarRange, FolderKanban } from 'lucide-react'
 import WeeklyChildTaskCalendar from '@/components/tasks/WeeklyChildTaskCalendar'
 import dynamic from 'next/dynamic'
 const CreateTaskModal = dynamic(() => import('@/components/tasks/CreateTaskModal'))
@@ -48,16 +49,35 @@ export default function TasksPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <h1 className="text-2xl font-bold text-gray-900">ניהול משימות</h1>
-                {selectedChildId && (
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">לוח משימות שבועי</h1>
+                    <p className="text-sm text-gray-500">צפייה וניהול משימות לילדי המשפחה</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                        href="/dashboard/tasks/planning"
+                        className="flex items-center gap-1.5 bg-white text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-indigo-50 transition-colors shadow-xs"
                     >
-                        <Plus size={18} />
-                        משימה חדשה
-                    </button>
-                )}
+                        <CalendarRange size={16} />
+                        תכנון שבועי
+                    </Link>
+                    <Link
+                        href="/dashboard/tasks/bank"
+                        className="flex items-center gap-1.5 bg-white text-indigo-700 border border-indigo-200 px-3.5 py-2 rounded-xl text-sm font-medium hover:bg-indigo-50 transition-colors shadow-xs"
+                    >
+                        <FolderKanban size={16} />
+                        בנק משימות
+                    </Link>
+                    {selectedChildId && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                        >
+                            <Plus size={18} />
+                            משימה חדשה
+                        </button>
+                    )}
+                </div>
             </div>
 
             {loading ? (
