@@ -42,52 +42,52 @@ Decouple task templates from individual child tasks by creating a Master Task Ba
 
 ---
 
-- [ ] **Step 3: Weekly Kanban Allocation Board Dedicated Page (`/dashboard/tasks/planning`)**
-  - [ ] 3.1 Create dedicated page `src/app/dashboard/tasks/planning/page.tsx` and add "תכנון שבועי" to `Sidebar.tsx` (parents only)
-  - [ ] 3.2 Build `WeeklyAllocationBoard.tsx` header bar:
+- [x] **Step 3: Weekly Kanban Allocation Board Dedicated Page (`/dashboard/tasks/planning`) with `@dnd-kit`** *(COMPLETED)*
+  - [x] 3.1 Install and configure `@dnd-kit/core` and `@dnd-kit/utilities`
+  - [x] 3.2 Create dedicated page `src/app/dashboard/tasks/planning/page.tsx`
+  - [x] 3.3 Build `WeeklyAllocationBoard.tsx` header bar:
     - Week selector with Prev / Next navigation (defaults to upcoming/current week)
     - Formatted date range indicator (e.g. `Oct 11, 2026 – Oct 17, 2026`)
     - Total weekly stars summary counter across all children
-  - [ ] 3.3 Build Source Column: "Master Task Bank":
+  - [x] 3.4 Build Source Column: "Master Task Bank":
     - Scrollable list of templates from `master_task_bank`
     - In-column search/filter input
-    - Draggable template cards
-  - [ ] 3.4 Build Destination Columns: "Children Boards":
+    - Draggable template cards using `useDraggable`
+  - [x] 3.5 Build Destination Columns: "Children Boards":
     - One column per child profile in the family
     - Column header with child avatar, name, and child's total weekly scheduled stars
-    - Drop zone for dragged cards
+    - Droppable target container using `useDroppable`
     - Cards displaying title, icon, assigned day chips, star badge, edit days trigger, and remove button
-  - [ ] 3.5 Build `DayAssignmentPopover.tsx` (opens on drop or card click):
+  - [x] 3.6 Build `DayAssignmentPopover.tsx` (opens on drop or card click):
     - Day checkboxes: `[Sun, Mon, Tue, Wed, Thu, Fri, Sat]` (Hebrew: `[א, ב, ג, ד, ה, ו, ש]`)
     - Quick presets: "Everyday" (Sun–Sat), "Weekdays" (Sun–Thu), "Weekend" (Fri–Sat)
     - Optional star override input
-  - [ ] 3.6 Implement Drag-and-Drop flow & mobile accessibility:
-    - Drag card from Bank $\rightarrow$ Drop on Child $\rightarrow$ Select days in popover
-    - Move card between children
-    - Remove card from child back to bank
-    - Mobile-friendly click-to-assign fallback
-  - [ ] 3.7 Implement local draft state (`Draft Schedule`):
+  - [x] 3.7 Configure `@dnd-kit` sensors & `DragOverlay`:
+    - `PointerSensor` & `TouchSensor` with delay/distance thresholds for seamless mobile touch dragging
+    - Animated `DragOverlay` preview with lift effect and elevation shadow
+    - Drop detection (Bank $\rightarrow$ Child, Child $\rightarrow$ Child, Child $\rightarrow$ Bank)
+  - [x] 3.8 Implement local draft state (`Draft Schedule`):
     - All allocations remain in local state until explicitly applied
   - *Definition of Done (Step 3):*
     - Parents can navigate to `/dashboard/tasks/planning` via the sidebar.
-    - Parents can drag/assign any template to any child for any selection of days.
+    - Drag & Drop powered by `@dnd-kit` works smoothly with animations and native touch drag on mobile/tablet.
     - Live star counters per child and family header update instantly.
-    - Draft state is completely manageable and responsive on both desktop and mobile.
+    - Draft state is completely manageable and responsive across all screen sizes.
 
 ---
 
-- [ ] **Step 4: Batch Apply Engine & Deduplication**
-  - [ ] 4.1 Build `StickyActionBar.tsx`:
+- [x] **Step 4: Batch Apply Engine & Deduplication** *(COMPLETED)*
+  - [x] 4.1 Build `StickyActionBar.tsx`:
     - Summary label: `"X tasks scheduled across Y children"`
     - "Apply Weekly Schedule" primary button
     - "Reset Draft" secondary button
-  - [ ] 4.2 Build batch processing service / Server Action:
+  - [x] 4.2 Build batch processing service / Server Action:
     - Iterate over draft allocations and calculate exact dates: `assigned_date = addDays(weekStart, dayIndex)`
     - Construct `tasks` payload (`family_id`, `created_by`, `assigned_to`, `title`, `description`, `icon_key`, `stars_value`, `due_date`, `status: 'pending'`, `master_task_id`)
     - Enforce deduplication: upsert on `(master_task_id, assigned_to, due_date)` updating star value, title, and icon without duplicating rows
-  - [ ] 4.3 Add full-screen loading overlay during batch execution
-  - [ ] 4.4 Trigger Sonner success toast and invalidate React Query caches (`['tasks']`, `['familyOverview']`)
-  - [ ] 4.5 Provide option/button to view the updated Child Dashboard
+  - [x] 4.3 Add full-screen loading overlay during batch execution
+  - [x] 4.4 Trigger Sonner success toast and invalidate React Query caches (`['tasks']`, `['familyOverview']`)
+  - [x] 4.5 Provide option/button to view the updated Child Dashboard
   - *Definition of Done (Step 4):*
     - Clicking "Apply Weekly Schedule" creates real tasks for children for that week.
     - Applying a second time with modified days or stars updates existing tasks without creating duplicates.

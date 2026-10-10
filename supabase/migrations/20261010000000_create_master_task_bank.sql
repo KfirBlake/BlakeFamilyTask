@@ -61,7 +61,8 @@ create policy "Parents delete master task bank"
 alter table public.tasks
   add column if not exists master_task_id uuid references public.master_task_bank(id) on delete set null;
 
--- 5. Create partial unique index on tasks for batch deduplication
-create unique index if not exists idx_tasks_master_child_date
-  on public.tasks (master_task_id, assigned_to, due_date)
-  where master_task_id is not null;
+-- 5. Add unique constraint on tasks for batch deduplication / upsert
+alter table public.tasks
+  drop constraint if exists uq_tasks_master_child_date;
+alter table public.tasks
+  add constraint uq_tasks_master_child_date unique (master_task_id, assigned_to, due_date);

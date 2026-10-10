@@ -143,9 +143,12 @@ Add first-class sidebar navigation items for parents:
     - **סופ״ש (Weekend):** Days 5..6 (Fri–Sat)
   - Star value override input (defaults to template's `default_stars`).
 
-### 3.4 Drag-and-Drop Implementation
-- Built using native HTML5 Drag and Drop API (`draggable`, `onDragStart`, `dataTransfer`, `onDragOver`, `onDrop`) for zero-dependency React 19 compatibility and instant performance.
-- Full mobile accessibility: Includes a "הקצה לילד..." (Assign to...) click-menu fallback for touch devices that do not support drag gestures.
+### 3.4 Drag-and-Drop Implementation (`@dnd-kit`)
+- Powered by **`@dnd-kit/core`** and **`@dnd-kit/utilities`**:
+  - **Sensors:** Configured with `PointerSensor` (with distance activation constraint, e.g. 5px) and `TouchSensor` (with press delay / tolerance, e.g. 200ms delay + 5px tolerance) so mobile users can scroll vertically normally, but hold-and-drag activates smooth drag gestures natively.
+  - **Collision Detection:** `rectIntersection` / `closestCenter` for accurate multi-column drop target detection.
+  - **`DragOverlay`:** Renders a floating duplicate of the dragged card with elevation shadow, subtle scale ($1.04$), and tilt for modern physics.
+  - **Native Mobile & Tablet Support:** First-class touch drag interaction without relying on workarounds or click-only menus.
 
 ---
 
