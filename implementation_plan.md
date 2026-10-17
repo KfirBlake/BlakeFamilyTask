@@ -221,3 +221,129 @@ interface WeeklyDraftAllocation {
 4. **Batch Apply & Deduplication Testing:**
    - Apply weekly schedule and verify that tasks appear in [WeeklyChildTaskCalendar.tsx](file:///c:/develop/family-task/src/components/tasks/WeeklyChildTaskCalendar.tsx).
    - Change days/stars and click "Apply" again $\rightarrow$ verify records are updated in place with zero duplicate rows.
+
+---
+
+# Implementation Plan: Reward Requests Cancellation & Return (Child & Parent)
+
+## 1. Feature Overview & Business Logic
+
+When a child requests a reward from the Rewards Store (`rewards_store`), their stars are immediately deducted from `profiles.stars_balance`, and a record in `reward_purchases` is created with status `'pending'`.
+
+Currently, parents can only mark the pending request as `redeemed`. If a child requests a reward by mistake, or if a parent cannot fulfill the requested reward, there is no way to cancel the request and restore the child's star points.
+
+This feature introduces two complementary actions:
+1. **Child Action — Cancel Pending Request:**
+   - Child can cancel their own pending request directly from `/child/rewards`.
+   - The status updates to `'cancelled'` and their spent stars are refunded back to `profiles.stars_balance`.
+2. **Parent Action — Return / Reject Pending Request:**
+   - Parent can reject/return a child's pending reward request from `/dashboard/rewards/pending`.
+   - The status updates to `'rejected'` and the reward's cost in stars is refunded back to the child's `profiles.stars_balance`.
+
+```mermaid
+graph TD
+    A[Child Buys Reward] -->|Deduct Stars & Set status='pending'| B[reward_purchases record]
+    B -->|Child clicks 'בטל בקשה'| C[RPC: cancel_reward_purchase]
+    B -->|Parent clicks 'החזר / דחה'| D[RPC: reject_reward_purchase]
+    B -->|Parent swipes to redeem| E[Status='redeemed']
+
+    C -->|Set status='cancelled' & Refund Stars| F[Child Balance Restored]
+    D -->|Set status='rejected' & Refund Stars| F
+```
+
+---
+
+## 2. Database Schema & Atomic Stored Procedures
+
+### 2.1 Update Status Check Constraint on `reward_purchases`
+Currently: `CHECK (status = ANY (ARRAY['pending'::text, 'redeemed'::text]))`
+Updated to:
+```sql
+ALTER TABLE public.reward_purchases 
+  DROP CONSTRAINT IF EXISTS reward_purchases_status_check;
+
+ALTER TABLE public.reward_purchases 
+  ADD CONSTRAINT reward_purchases_status_check 
+  CHECK (status = ANY (ARRAY['pending'::text, 'redeemed'::text, 'cancelled'::text, 'rejected'::text]));
+```
+
+### 2.2 Row Level Security (RLS) Policy
+Allow children to update their own pending purchases:
+```sql
+CREATE POLICY "Children can cancel own pending purchases"
+  ON public.reward_purchases FOR UPDATE
+  USING (
+    child_id = auth.uid()
+    AND status = 'pending'
+  )
+  WITH CHECK (
+    child_id = auth.uid()
+    AND status = 'cancelled'
+  );
+```
+
+### 2.3 Atomic Postgres RPCs (Single Transaction & Security Definer)
+Using database RPCs guarantees atomicity (status change + star refund in one transaction) and overcomes RLS permission limitations (where non-admin parents cannot update other profiles):
+
+1. **`public.cancel_reward_purchase(p_purchase_id uuid)`:**
+   - Validates that caller is the child (`child_id = auth.uid()`).
+   - Validates that purchase `status = 'pending'`.
+   - Retrieves reward price from `rewards_store`.
+   - Updates `reward_purchases` status to `'cancelled'`.
+   - Updates `profiles.stars_balance = stars_balance + price` for `child_id`.
+   - Returns `{ success: true, refunded_stars: price, new_balance: balance }`.
+
+2. **`public.reject_reward_purchase(p_purchase_id uuid)`:**
+   - Validates that caller is a `parent` or `admin_parent` within the same family as the purchase.
+   - Validates that purchase `status = 'pending'`.
+   - Retrieves `child_id` and reward price.
+   - Updates `reward_purchases` status to `'rejected'`.
+   - Updates `profiles.stars_balance = stars_balance + price` for `child_id`.
+   - Returns `{ success: true, refunded_stars: price, child_id: child_id }`.
+
+---
+
+## 3. Frontend Implementation
+
+### 3.1 Child UI: `src/app/child/rewards/page.tsx`
+- In `purchases` query, include `price` from `rewards_store (id, name, icon_key, description, price)`.
+- In the **"המתנות שלי 🎁"** $\rightarrow$ **"ממתין למימוש"** list:
+  - Add a **"בטל בקשה"** button with a trash/undo icon.
+  - On click, show a confirmation prompt: `"האם לבטל את ההזמנה של {reward_name}? {price} כוכבים יוחזרו לחשבונך."`
+  - On confirm, call `supabase.rpc('cancel_reward_purchase', { p_purchase_id: purchase.id })`.
+  - Invalidate queries: `['profiles', 'balance', userId]` and `['reward_purchases', userId]`.
+  - Display success feedback banner: `"ההזמנה בוטלה ו-{refunded_stars} כוכבים הוחזרו לחשבונך!"`.
+
+### 3.2 Parent UI: `src/app/dashboard/rewards/pending/page.tsx`
+- On each pending reward card:
+  - Add a **"החזר / דחה"** button (styled with red outline/soft-red background and undo/X icon) next to the `SwipeToComplete` slider.
+  - On click, display a confirmation modal:
+    - `"האם לדחות את בקשת הפרס של {child_name}?"`
+    - Subtitle: `"{price} כוכבים יוחזרו באופן מיידי ליתרת הכוכבים של הילד."`
+  - On confirm, call `supabase.rpc('reject_reward_purchase', { p_purchase_id: p.id })`.
+  - Invalidate queries: `['reward_purchases']` and `['familyOverview']`.
+  - Display success feedback notification.
+
+### 3.3 Parent History: `src/app/dashboard/rewards/history/page.tsx`
+- Broaden the query from `.eq('status', 'redeemed')` to `.in('status', ['redeemed', 'rejected', 'cancelled'])`.
+- Add a status filter: `[הכל, מומש, נדחה והוחזר, בוטל ע״י הילד]`.
+- Display colored status badges on each history card:
+  - `redeemed`: Green badge ("מומש")
+  - `rejected`: Red/Orange badge ("נדחה והוחזר")
+  - `cancelled`: Gray badge ("בוטל ע״י הילד")
+
+---
+
+## 4. Verification & Testing Checklist
+1. **Child Cancellation Flow:**
+   - Child with 50 stars purchases a 15-star reward $\rightarrow$ balance becomes 35, request appears in "ממתין למימוש".
+   - Child clicks "בטל בקשה" and confirms $\rightarrow$ request disappears from pending, balance immediately updates back to 50 stars.
+2. **Parent Return/Reject Flow:**
+   - Child purchases a 20-star reward $\rightarrow$ balance drops by 20.
+   - Parent visits `/dashboard/rewards/pending` $\rightarrow$ sees the pending reward $\rightarrow$ clicks "החזר / דחה" and confirms.
+   - Request is removed from pending, child receives 20 stars back immediately.
+3. **Security & State Protection:**
+   - Cannot cancel or reject an already redeemed request.
+   - Child cannot cancel another child's request.
+   - Non-family member cannot reject requests.
+   - Zero double-refund race conditions due to atomic DB transaction.

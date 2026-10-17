@@ -57,20 +57,29 @@ export default function DraggableAllocatedCard({ allocation, onEdit, onDelete }:
             {...attributes}
             className={`
                 group relative bg-white rounded-xl border border-gray-200/90 p-3 shadow-xs
-                hover:shadow-md hover:border-indigo-300 transition-all cursor-grab active:cursor-grabbing select-none
+                hover:shadow-md hover:border-indigo-300 transition-all cursor-grab active:cursor-grabbing
+                select-none touch-manipulation
                 ${isDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' : ''}
             `}
+            style={{
+                WebkitTouchCallout: 'none',
+                WebkitUserSelect: 'none',
+            }}
             dir="rtl"
         >
             <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                    <div className="text-gray-300 group-hover:text-indigo-400 transition-colors flex-shrink-0">
-                        <GripVertical size={14} />
+                    {/* Touch-optimized Drag handle */}
+                    <div
+                        className="p-1.5 -mr-1 text-gray-300 group-hover:text-indigo-500 active:text-indigo-600 rounded-lg hover:bg-gray-100/80 active:bg-indigo-50 transition-colors flex-shrink-0 touch-none cursor-grab active:cursor-grabbing"
+                        title="גרור משימה לעמודה אחרת"
+                    >
+                        <GripVertical size={16} />
                     </div>
-                    <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-center text-base flex-shrink-0 overflow-hidden">
+                    <div className="w-8 h-8 bg-indigo-50 border border-indigo-100 rounded-lg flex items-center justify-center text-base flex-shrink-0 overflow-hidden pointer-events-none">
                         <IconRenderer iconKey={allocation.icon_key} size={18} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 pointer-events-none">
                         <h4 className="text-xs font-bold text-gray-900 truncate" title={allocation.title}>
                             {allocation.title}
                         </h4>
@@ -84,17 +93,20 @@ export default function DraggableAllocatedCard({ allocation, onEdit, onDelete }:
                 </div>
 
                 {/* Edit & Delete Action buttons */}
-                <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-80 sm:opacity-70 group-hover:opacity-100 transition-opacity">
                     <button
                         type="button"
                         onClick={(e) => {
                             e.stopPropagation()
                             onEdit(allocation)
                         }}
-                        className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                        onTouchStart={(e) => {
+                            e.stopPropagation()
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-indigo-600 active:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg transition-colors"
                         title="ערוך ימים וכוכבים"
                     >
-                        <Edit2 size={13} />
+                        <Edit2 size={14} />
                     </button>
                     <button
                         type="button"
@@ -102,16 +114,19 @@ export default function DraggableAllocatedCard({ allocation, onEdit, onDelete }:
                             e.stopPropagation()
                             onDelete(allocation.id)
                         }}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        onTouchStart={(e) => {
+                            e.stopPropagation()
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 active:text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-colors"
                         title="הסר משימה"
                     >
-                        <Trash2 size={13} />
+                        <Trash2 size={14} />
                     </button>
                 </div>
             </div>
 
             {/* Scheduled Days Chips */}
-            <div className="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1">
+            <div className="mt-2.5 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1 pointer-events-none">
                 {isEveryday ? (
                     <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-md text-[10px] font-bold border border-indigo-100/60">
                         כל השבוע (7 ימים)

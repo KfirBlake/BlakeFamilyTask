@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Star, Gift, ShoppingBag, Loader2 } from 'lucide-react'
+import { Star, Gift, ShoppingBag, Loader2, RotateCcw } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import IconRenderer from '@/components/ui/IconRenderer'
 import { useUserPreferences } from '@/contexts/UserContext'
@@ -18,7 +18,7 @@ type Reward = {
 
 type RewardPurchase = {
     id: string
-    status: 'pending' | 'redeemed'
+    status: 'pending' | 'redeemed' | 'cancelled' | 'rejected'
     purchased_at: string
     redeemed_at: string | null
     rewards_store: {
@@ -26,11 +26,14 @@ type RewardPurchase = {
         name: string
         icon_key: string
         description: string | null
+        price: number
     }
 }
 
 export default function ChildRewardsPage() {
     const [redeemingId, setRedeemingId] = useState<string | null>(null)
+    const [cancellingPurchase, setCancellingPurchase] = useState<RewardPurchase | null>(null)
+    const [isCancelling, setIsCancelling] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [successMsg, setSuccessMsg] = useState<string | null>(null)
     const { preferences, userId, familyId } = useUserPreferences()
@@ -86,7 +89,8 @@ export default function ChildRewardsPage() {
                         id,
                         name,
                         icon_key,
-                        description
+                        description,
+                        price
                     )
                 `)
                 .eq('child_id', userId)
@@ -168,6 +172,35 @@ export default function ChildRewardsPage() {
 
         setRedeemingId(null)
         setTimeout(() => setSuccessMsg(null), 5000)
+    }
+
+    async function handleCancelRequest(purchase: RewardPurchase) {
+        setIsCancelling(true)
+        setError(null)
+
+        try {
+            const { data, error: rpcError } = await supabase
+                .rpc('cancel_reward_purchase', { p_purchase_id: purchase.id })
+
+            if (rpcError) {
+                console.error('Cancel error:', rpcError)
+                setError('שגיאה בביטול הבקשה. אנא נסה שוב.')
+            } else if (data && !data.success) {
+                setError(data.error || 'שגיאה בביטול הבקשה.')
+            } else {
+                const refunded = data?.refunded_stars ?? purchase.rewards_store?.price ?? 0
+                setSuccessMsg(`ההזמנה בוטלה ו-${refunded} כוכבים הוחזרו לחשבונך! ⭐`)
+                setCancellingPurchase(null)
+                queryClient.invalidateQueries({ queryKey: ['profiles', 'balance', userId] })
+                queryClient.invalidateQueries({ queryKey: ['reward_purchases', userId] })
+            }
+        } catch (err: any) {
+            setError(err?.message || 'שגיאה לא צפויה')
+        } finally {
+            setIsCancelling(false)
+            setTimeout(() => setSuccessMsg(null), 5000)
+            setTimeout(() => setError(null), 4000)
+        }
     }
 
     if (loading) {
@@ -295,10 +328,26 @@ export default function ChildRewardsPage() {
                                         <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0 text-3xl">
                                             <IconRenderer iconKey={purchase.rewards_store?.icon_key || '🎁'} />
                                         </div>
-                                        <div className="flex-1">
-                                            <h4 className="font-bold text-gray-900">{purchase.rewards_store?.name}</h4>
-                                            <p className="text-xs text-gray-500">נרכש ב-{new Date(purchase.purchased_at).toLocaleDateString('he-IL')}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-gray-900 truncate">{purchase.rewards_store?.name}</h4>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-xs text-gray-500">נרכש ב-{new Date(purchase.purchased_at).toLocaleDateString('he-IL')}</span>
+                                                {purchase.rewards_store?.price ? (
+                                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                        {purchase.rewards_store.price} <Star size={10} className="fill-indigo-600" />
+                                                    </span>
+                                                ) : null}
+                                            </div>
                                         </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setCancellingPurchase(purchase)}
+                                            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-colors shadow-sm active:scale-95"
+                                            title="בטל בקשת פרס והחזר כוכבים"
+                                        >
+                                            <RotateCcw size={13} />
+                                            <span>בטל</span>
+                                        </button>
                                     </div>
                                 ))}
                             </div>
@@ -327,6 +376,46 @@ export default function ChildRewardsPage() {
                             </div>
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Cancel Request Confirmation Modal */}
+            {cancellingPurchase && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" dir="rtl">
+                    <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl animate-in fade-in zoom-in duration-150">
+                        <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                            <RotateCcw size={28} />
+                        </div>
+                        <h3 className="text-xl font-black text-gray-900 mb-2">ביטול בקשת פרס</h3>
+                        <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+                            האם לבטל את ההזמנה של <span className="font-bold text-gray-900">{cancellingPurchase.rewards_store?.name}</span>?
+                        </p>
+                        {cancellingPurchase.rewards_store?.price ? (
+                            <div className="inline-flex items-center gap-1.5 text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-3.5 py-1.5 rounded-full mb-6">
+                                <span>{cancellingPurchase.rewards_store.price}</span>
+                                <Star size={14} className="fill-yellow-400 text-yellow-500" />
+                                <span>יוחזרו ליתרת הכוכבים שלך!</span>
+                            </div>
+                        ) : null}
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                disabled={isCancelling}
+                                onClick={() => setCancellingPurchase(null)}
+                                className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-sm transition-colors"
+                            >
+                                השאר בקשה
+                            </button>
+                            <button
+                                type="button"
+                                disabled={isCancelling}
+                                onClick={() => handleCancelRequest(cancellingPurchase)}
+                                className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
+                            >
+                                {isCancelling ? 'מבטל...' : 'כן, בטל'}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

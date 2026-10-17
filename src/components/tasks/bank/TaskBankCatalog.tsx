@@ -192,6 +192,7 @@ export default function TaskBankCatalog() {
                     {filteredTemplates.map((template) => (
                         <div
                             key={template.id}
+                            onClick={() => handleEdit(template)}
                             className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all flex flex-col justify-between group"
                         >
                             <div>

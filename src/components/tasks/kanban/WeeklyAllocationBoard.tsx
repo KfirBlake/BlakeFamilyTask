@@ -6,9 +6,11 @@ import {
     DragOverlay,
     useSensor,
     useSensors,
-    PointerSensor,
+    MouseSensor,
     TouchSensor,
+    pointerWithin,
     rectIntersection,
+    CollisionDetection,
     DragStartEvent,
     DragEndEvent,
 } from '@dnd-kit/core'
@@ -196,20 +198,29 @@ export default function WeeklyAllocationBoard() {
         setDraftAllocations(Array.from(groupedMap.values()))
     }, [existingTasks])
 
-    // Configure sensors: Pointer + Touch with thresholds for smooth mobile experience
+    // Configure sensors: MouseSensor for instant desktop drag, TouchSensor with short delay & tolerance for mobile
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(MouseSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 8,
             },
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 200,
-                tolerance: 5,
+                delay: 200, // 200ms hold on touch devices to differentiate scrolling from dragging
+                tolerance: 6, // Allow 6px drift during hold
             },
         })
     )
+
+    // Collision detection: pointerWithin for high accuracy with finger/mouse, fallback to rectIntersection
+    const collisionDetectionStrategy: CollisionDetection = (args) => {
+        const pointerCollisions = pointerWithin(args)
+        if (pointerCollisions.length > 0) {
+            return pointerCollisions
+        }
+        return rectIntersection(args)
+    }
 
     const dateRangeLabel = useMemo(() => {
         const startStr = format(weekStart, 'd בMMMM', { locale: he })
@@ -481,7 +492,7 @@ export default function WeeklyAllocationBoard() {
                             <h1 className="text-xl font-bold text-gray-900">לוח תכנון שבועי (קנבן)</h1>
                         </div>
                         <p className="text-xs text-gray-500">
-                            גררו משימות מבנק המשימות ישירות לעמודות הילדים ובחרו את הימים הרצויים.
+                            גררו משימות מבנק המשימות לעמודות הילדים (במסכי מגע: החזיקו קלות וגררו או השתמשו בידית האחיזה / כפתור השיבוץ).
                         </p>
                     </div>
 
@@ -565,11 +576,15 @@ export default function WeeklyAllocationBoard() {
             {/* 2. DndContext Interactive Board */}
             <DndContext
                 sensors={sensors}
-                collisionDetection={rectIntersection}
+                collisionDetection={collisionDetectionStrategy}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                autoScroll={{
+                    threshold: { x: 0.15, y: 0.15 },
+                    acceleration: 5,
+                }}
             >
-                <div className="flex gap-4 overflow-x-auto pb-6 pt-1 items-start">
+                <div className="flex gap-4 overflow-x-auto pb-6 pt-1 items-start touch-pan-x overscroll-x-contain">
                     {/* Source Column: Master Task Bank */}
                     <DroppableBankColumn
                         templates={templates}
@@ -606,10 +621,10 @@ export default function WeeklyAllocationBoard() {
                 </div>
 
                 {/* 3. DragOverlay for smooth physics preview while dragging */}
-                <DragOverlay dropAnimation={null}>
+                <DragOverlay dropAnimation={null} zIndex={100}>
                     {activeDragItem ? (
                         <div
-                            className="bg-white rounded-xl border-2 border-indigo-500 p-3 shadow-2xl scale-105 rotate-2 opacity-95 pointer-events-none cursor-grabbing"
+                            className="bg-white rounded-xl border-2 border-indigo-500 p-3 shadow-2xl scale-105 rotate-2 opacity-95 pointer-events-none cursor-grabbing touch-none select-none"
                             dir="rtl"
                         >
                             <div className="flex items-center gap-2.5">

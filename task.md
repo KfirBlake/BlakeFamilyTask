@@ -103,3 +103,40 @@ Decouple task templates from individual child tasks by creating a Master Task Ba
   - *Definition of Done (Step 5):*
     - Full workflow works seamlessly without errors or console warnings.
     - User signoff and verification.
+
+---
+
+# Feature: Reward Requests Cancellation & Return (Child & Parent)
+
+## Steps & Sub-tasks
+
+- [x] **Step 6: Database Migration & Atomic Stored Procedures** *(COMPLETED)*
+  - [x] 6.1 Create migration file `supabase/migrations/20261018000000_reward_cancellation_and_return.sql`
+  - [x] 6.2 Update `reward_purchases` status check constraint to include `'cancelled'` and `'rejected'`
+  - [x] 6.3 Update RLS policies on `reward_purchases` allowing children to update their own pending requests to `'cancelled'`
+  - [x] 6.4 Create transactional Postgres RPC `public.cancel_reward_purchase(p_purchase_id uuid)` with `SECURITY DEFINER` (validates child ownership, updates status to `cancelled`, and refunds stars to child `stars_balance`)
+  - [x] 6.5 Create transactional Postgres RPC `public.reject_reward_purchase(p_purchase_id uuid)` with `SECURITY DEFINER` (validates parent family membership, updates status to `rejected`, and refunds stars to child `stars_balance`)
+  - [x] 6.6 Apply migration to Supabase and verify RPC functions and constraints via SQL
+
+- [x] **Step 7: Child UI - Cancel Pending Reward Request** *(COMPLETED)*
+  - [x] 7.1 Update `src/app/child/rewards/page.tsx` query to fetch reward price for pending purchases
+  - [x] 7.2 Add "בטל בקשה" (Cancel Request) button on pending reward cards in "המתנות שלי"
+  - [x] 7.3 Add confirmation dialog informing the child that their stars will be refunded
+  - [x] 7.4 Connect action to `cancel_reward_purchase` RPC with optimistic update & cache invalidation (`profiles`, `reward_purchases`)
+  - [x] 7.5 Show feedback banner/toast confirming cancellation and stars returned
+
+- [x] **Step 8: Parent UI - Return / Reject Reward Request in Pending Approvals** *(COMPLETED)*
+  - [x] 8.1 Update `src/app/dashboard/rewards/pending/page.tsx` to include "החזר מתנה / דחה" button alongside the redeem action
+  - [x] 8.2 Add confirmation modal displaying the child name and star points that will be refunded
+  - [x] 8.3 Connect action to `reject_reward_purchase` RPC with loading state and cache invalidation
+  - [x] 8.4 Display success notification confirming stars refund and request rejection
+
+- [x] **Step 9: History & Status Visibility** *(COMPLETED)*
+  - [x] 9.1 Update `src/app/dashboard/rewards/history/page.tsx` to display and filter by all resolved statuses (`redeemed`, `rejected`, `cancelled`) with clear Hebrew badges
+  - [x] 9.2 Update `src/app/child/rewards/page.tsx` to show cancelled/rejected history if desired, or keep "כבר מימשתי" clean
+
+- [ ] **Step 10: Testing & Verification** *(USER WILL PERFORM)*
+  - [ ] 10.1 Verify Child Cancel flow: purchase reward $\rightarrow$ balance drops $\rightarrow$ cancel pending request $\rightarrow$ status becomes `cancelled` $\rightarrow$ balance restored
+  - [ ] 10.2 Verify Parent Reject flow: child purchases reward $\rightarrow$ parent clicks "החזר / דחה" $\rightarrow$ status becomes `rejected` $\rightarrow$ child balance restored
+  - [ ] 10.3 Verify non-pending protection (cannot cancel or reject already redeemed items)
+  - [x] 10.4 Verify TypeScript compilation (`tsc --noEmit`) and UI responsiveness

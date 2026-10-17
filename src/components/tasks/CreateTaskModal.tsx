@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { X, Star, Calendar, RefreshCw } from 'lucide-react'
+import { X, Star, Calendar, RefreshCw, Trash2 } from 'lucide-react'
 import { format, addDays, addWeeks, addMonths, addYears, getDay, isBefore, isSameDay } from 'date-fns'
 import IconPicker from '../ui/IconPicker'
 import { useUserPreferences } from '@/contexts/UserContext'
@@ -44,9 +44,12 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
 
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
+            setShowDeleteConfirm(false)
+            setError(null)
             if (task) {
                 // Editing mode
                 setTitle(task.title)
@@ -75,6 +78,71 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
 
     const supabase = createClient()
     const { userId, familyId } = useUserPreferences()
+
+    async function handleDeleteSingleTask() {
+        if (!task) return
+        setLoading(true)
+        setError(null)
+
+        try {
+            const { error: deleteError } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', task.id)
+
+            if (deleteError) {
+                setError('שגיאה במחיקת המשימה: ' + deleteError.message)
+                setLoading(false)
+            } else {
+                setShowDeleteConfirm(false)
+                setLoading(false)
+                onSuccess()
+                onClose()
+            }
+        } catch (err: any) {
+            setError('שגיאה לא צפויה: ' + (err?.message || 'אנא נסה שוב'))
+            setLoading(false)
+        }
+    }
+
+    async function handleDeleteThisAndFutureTasks() {
+        if (!task) return
+        setLoading(true)
+        setError(null)
+
+        try {
+            const baseDate = task.due_date || format(new Date(), 'yyyy-MM-dd')
+
+            let batchError = null
+            if (task.template_id) {
+                const res = await supabase
+                    .from('tasks')
+                    .delete()
+                    .eq('template_id', task.template_id)
+                    .gte('due_date', baseDate)
+                    .eq('status', 'pending')
+                batchError = res.error
+            }
+
+            const { error: singleError } = await supabase
+                .from('tasks')
+                .delete()
+                .eq('id', task.id)
+
+            if (batchError || singleError) {
+                setError('שגיאה במחיקת המשימות: ' + (batchError?.message || singleError?.message))
+                setLoading(false)
+            } else {
+                setShowDeleteConfirm(false)
+                setLoading(false)
+                onSuccess()
+                onClose()
+            }
+        } catch (err: any) {
+            setError('שגיאה לא צפויה: ' + (err?.message || 'אנא נסה שוב'))
+            setLoading(false)
+        }
+    }
 
     async function handleDeleteFutureTasks() {
         if (!task || !task.template_id) return
@@ -246,12 +314,114 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="relative bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" dir="rtl">
+                {/* Delete Confirmation Overlay */}
+                {showDeleteConfirm && (
+                    <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-150">
+                        <div className="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-4 shadow-inner">
+                            <Trash2 size={28} />
+                        </div>
+                        <h4 className="text-xl font-bold text-gray-900 mb-2">
+                            {task?.template_id ? 'מחיקת משימה מחזורית' : 'מחיקת משימה'}
+                        </h4>
+                        <p className="text-sm text-gray-600 mb-6 max-w-xs leading-relaxed">
+                            {task?.template_id
+                                ? 'משימה זו היא חלק מסדרה מחזורית. כיצד ברצונך למחוק אותה?'
+                                : `האם אתה בטוח שברצונך למחוק את "${title || task?.title}"? פעולה זו אינה ניתנת לביטול.`}
+                        </p>
+
+                        {error && (
+                            <div className="w-full text-red-600 text-xs bg-red-50 border border-red-200 p-2.5 rounded-lg mb-4 text-center">
+                                {error}
+                            </div>
+                        )}
+
+                        {task?.template_id ? (
+                            <div className="w-full space-y-2.5 max-w-xs">
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleDeleteSingleTask}
+                                    className="w-full py-3 px-4 bg-white border border-red-200 hover:bg-red-50 text-red-600 font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                                >
+                                    <Trash2 size={16} />
+                                    <span>{loading ? 'מוחק...' : 'מחק משימה זו בלבד'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleDeleteThisAndFutureTasks}
+                                    className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                                >
+                                    <Trash2 size={16} />
+                                    <span>{loading ? 'מוחק...' : 'מחק משימה זו וכל העתידיות'}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={() => {
+                                        setShowDeleteConfirm(false)
+                                        setError(null)
+                                    }}
+                                    className="w-full py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl text-sm transition-colors mt-2"
+                                >
+                                    ביטול
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex gap-3 w-full max-w-xs">
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={() => {
+                                        setShowDeleteConfirm(false)
+                                        setError(null)
+                                    }}
+                                    className="flex-1 py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-xl text-sm transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleDeleteSingleTask}
+                                    className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+                                >
+                                    <Trash2 size={16} />
+                                    <span>{loading ? 'מוחק...' : 'כן, מחק'}</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
                     <h3 className="font-bold text-gray-900">{task ? 'עריכת משימה' : 'משימה חדשה'}</h3>
-                    <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-                        <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {task && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setError(null)
+                                    setShowDeleteConfirm(true)
+                                }}
+                                disabled={loading}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="מחק משימה"
+                                aria-label="מחק משימה"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="p-1.5 text-gray-500 hover:text-gray-700 rounded-lg transition-colors"
+                            aria-label="סגור"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="max-h-[85vh] overflow-y-auto">
@@ -430,13 +600,30 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl transition-colors disabled:opacity-70 text-lg shadow-sm"
-                        >
-                            {loading ? 'שומר...' : (task ? 'עדכן משימה' : 'צור משימה')}
-                        </button>
+                        <div className="flex items-center gap-3 mt-4">
+                            {task && (
+                                <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={() => {
+                                        setError(null)
+                                        setShowDeleteConfirm(true)
+                                    }}
+                                    className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-bold transition-all disabled:opacity-50 text-base shadow-sm"
+                                    title="מחק משימה"
+                                >
+                                    <Trash2 size={18} />
+                                    <span>מחק משימה</span>
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className={`${task ? 'flex-1' : 'w-full'} bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-4 rounded-xl transition-colors disabled:opacity-70 text-lg shadow-sm`}
+                            >
+                                {loading ? 'שומר...' : (task ? 'עדכן משימה' : 'צור משימה')}
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>

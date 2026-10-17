@@ -38,6 +38,7 @@ export default function DroppableBankColumn({
 
     return (
         <div
+            ref={setNodeRef}
             className={`
                 flex flex-col bg-gray-50/80 rounded-2xl border transition-all duration-200
                 min-w-[280px] max-w-[320px] flex-shrink-0
@@ -92,7 +93,6 @@ export default function DroppableBankColumn({
 
             {/* Droppable Area for returning cards back / List of available bank cards */}
             <div
-                ref={setNodeRef}
                 className="flex-1 p-3 space-y-2.5 overflow-y-auto min-h-[380px] max-h-[620px]"
             >
                 {/* Visual drop indicator when dragging an allocated card back to the bank */}

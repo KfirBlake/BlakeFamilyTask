@@ -40,6 +40,7 @@ export default function DroppableChildColumn({
 
     return (
         <div
+            ref={setNodeRef}
             className={`
                 flex flex-col bg-gray-50/80 rounded-2xl border transition-all duration-200
                 min-w-[280px] max-w-[320px] flex-1
@@ -87,7 +88,6 @@ export default function DroppableChildColumn({
 
             {/* Droppable Card List Area */}
             <div
-                ref={setNodeRef}
                 className="flex-1 p-3 space-y-2.5 overflow-y-auto min-h-[380px] max-h-[620px]"
             >
                 {allocations.length === 0 ? (
