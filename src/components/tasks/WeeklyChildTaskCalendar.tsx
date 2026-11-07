@@ -20,6 +20,8 @@ import CreateTaskModal from './CreateTaskModal'
 import CreateChildTaskModal from './CreateChildTaskModal'
 import ChildTaskDetailModal from '../child/ChildTaskDetailModal'
 import IconRenderer from '../ui/IconRenderer'
+import TaskBankPickerModal from './TaskBankPickerModal'
+import type { MasterTaskTemplate } from '@/components/tasks/bank/TaskTemplateModal'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 type Task = {
@@ -49,6 +51,8 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isChildCreateModalOpen, setIsChildCreateModalOpen] = useState(false)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
+    const [selectedTemplate, setSelectedTemplate] = useState<MasterTaskTemplate | null>(null)
     const [viewingTask, setViewingTask] = useState<Task | null>(null)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
 
@@ -312,12 +316,20 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                                     </div>
                                 ))}
                                 {!isReadOnly ? (
-                                    <button
-                                        onClick={() => setIsCreateModalOpen(true)}
-                                        className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
-                                    >
-                                        + הוסף משימה
-                                    </button>
+                                    <div className="mt-4 flex flex-col gap-1">
+                                        <button
+                                            onClick={() => setIsCreateModalOpen(true)}
+                                            className="text-indigo-600 text-sm font-medium hover:underline text-right"
+                                        >
+                                            + הוסף משימה
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBankPickerOpen(true)}
+                                            className="text-indigo-400 text-sm font-medium hover:underline text-right"
+                                        >
+                                            + הוסף משימה מהבנק
+                                        </button>
+                                    </div>
                                 ) : (
                                     <button
                                         onClick={() => setIsChildCreateModalOpen(true)}
@@ -332,12 +344,20 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                                 <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
                                 <p className="text-sm">אין משימות ליום זה</p>
                                 {!isReadOnly ? (
-                                    <button
-                                        onClick={() => setIsCreateModalOpen(true)}
-                                        className="mt-4 text-indigo-600 text-sm font-medium hover:underline"
-                                    >
-                                        + הוסף משימה
-                                    </button>
+                                    <div className="mt-4 flex flex-col gap-1">
+                                        <button
+                                            onClick={() => setIsCreateModalOpen(true)}
+                                            className="text-indigo-600 text-sm font-medium hover:underline text-right"
+                                        >
+                                            + הוסף משימה
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBankPickerOpen(true)}
+                                            className="text-indigo-400 text-sm font-medium hover:underline text-right"
+                                        >
+                                            + הוסף משימה מהבנק
+                                        </button>
+                                    </div>
                                 ) : (
                                     <button
                                         onClick={() => setIsChildCreateModalOpen(true)}
@@ -381,12 +401,24 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                 onClose={() => {
                     setIsCreateModalOpen(false)
                     setEditingTask(null)
+                    setSelectedTemplate(null)
                 }}
                 childId={childId}
                 initialDate={format(selectedDay, 'yyyy-MM-dd')}
                 task={editingTask}
+                initialTemplate={selectedTemplate}
                 onSuccess={() => {
                     handleTaskAdded()
+                }}
+            />
+
+            <TaskBankPickerModal
+                isOpen={isBankPickerOpen}
+                onClose={() => setIsBankPickerOpen(false)}
+                onSelectTemplate={(template) => {
+                    setSelectedTemplate(template)
+                    setEditingTask(null)
+                    setIsCreateModalOpen(true)
                 }}
             />
 
