@@ -13,9 +13,12 @@ type Profile = {
     role: 'admin_parent' | 'parent' | 'child'
     avatar_url: string | null
     stars_balance: number
+    date_of_birth?: string | null
+    created_at?: string | null
 }
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { sortChildrenByAge } from '@/utils/childOrder'
 
 export default function FamilyMembersList() {
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -29,7 +32,13 @@ export default function FamilyMembersList() {
                 .from('profiles')
                 .select('*')
                 .order('created_at', { ascending: true })
-            return data || []
+            if (!data) return []
+
+            const parents = data.filter((m: Profile) => m.role !== 'child')
+            const children = data.filter((m: Profile) => m.role === 'child')
+            const sortedChildren = sortChildrenByAge(children)
+
+            return [...parents, ...sortedChildren]
         }
     })
 

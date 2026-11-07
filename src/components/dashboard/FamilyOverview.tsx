@@ -7,6 +7,7 @@ import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { Trophy, Star, Clock, CheckCircle } from 'lucide-react'
 import { useUserPreferences } from '@/contexts/UserContext'
 import { useQuery } from '@tanstack/react-query'
+import { sortChildrenByAge } from '@/utils/childOrder'
 
 // types
 type ChildStats = {
@@ -18,6 +19,8 @@ type ChildStats = {
     tasksCompleted: number // waiting_approval + approved
     tasksApproved: number
     tasksPendingApproval: number // waiting_approval
+    date_of_birth?: string | null
+    created_at?: string | null
 }
 
 export default function FamilyOverview() {
@@ -50,7 +53,9 @@ export default function FamilyOverview() {
                 .gte('due_date', format(start, 'yyyy-MM-dd'))
                 .lte('due_date', format(end, 'yyyy-MM-dd'))
 
-            const stats: ChildStats[] = children.map(child => {
+            const sortedChildren = sortChildrenByAge(children)
+
+            const stats: ChildStats[] = sortedChildren.map(child => {
                 const childTasks = tasks?.filter(t => t.assigned_to === child.id) || []
 
                 const total = childTasks.length
@@ -66,14 +71,10 @@ export default function FamilyOverview() {
                     tasksTotal: total,
                     tasksCompleted: completed,
                     tasksApproved: approved,
-                    tasksPendingApproval: pendingApproval
+                    tasksPendingApproval: pendingApproval,
+                    date_of_birth: child.date_of_birth,
+                    created_at: child.created_at
                 }
-            })
-
-            // Sort by pending approvals descending to bring attention, then by total completed
-            stats.sort((a, b) => {
-                if (b.tasksPendingApproval !== a.tasksPendingApproval) return b.tasksPendingApproval - a.tasksPendingApproval
-                return b.tasksCompleted - a.tasksCompleted
             })
 
             return stats

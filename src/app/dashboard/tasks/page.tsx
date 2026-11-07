@@ -11,12 +11,15 @@ import dynamic from 'next/dynamic'
 const CreateTaskModal = dynamic(() => import('@/components/tasks/CreateTaskModal'))
 import { useUserPreferences } from '@/contexts/UserContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { sortChildrenByAge } from '@/utils/childOrder'
 
 type Profile = {
     id: string
     full_name: string
     avatar_url: string | null
     role: string
+    date_of_birth?: string | null
+    created_at?: string | null
 }
 
 export default function TasksPage() {
@@ -37,7 +40,7 @@ export default function TasksPage() {
                 .select('*')
                 .eq('family_id', familyId)
                 .eq('role', 'child')
-            return kids || []
+            return sortChildrenByAge(kids || [])
         },
         enabled: !!familyId,
     })

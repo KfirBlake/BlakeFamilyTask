@@ -10,6 +10,8 @@ export interface ChildProfile {
     full_name: string
     avatar_url: string | null
     role: string
+    date_of_birth?: string | null
+    created_at?: string | null
 }
 
 type Props = {

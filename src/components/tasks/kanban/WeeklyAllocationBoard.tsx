@@ -44,6 +44,7 @@ import confetti from 'canvas-confetti'
 import { toast } from 'sonner'
 import { createClient } from '@/utils/supabase/client'
 import { useUserPreferences } from '@/contexts/UserContext'
+import { sortChildrenByAge } from '@/utils/childOrder'
 import DroppableBankColumn from './DroppableBankColumn'
 import DroppableChildColumn, { ChildProfile } from './DroppableChildColumn'
 import DayAssignmentModal from './DayAssignmentModal'
@@ -113,10 +114,9 @@ export default function WeeklyAllocationBoard() {
                 .select('*')
                 .eq('family_id', familyId)
                 .eq('role', 'child')
-                .order('created_at', { ascending: true })
 
             if (error) console.error('Error fetching children:', error)
-            return data || []
+            return sortChildrenByAge(data || [])
         },
         enabled: !!familyId,
     })
