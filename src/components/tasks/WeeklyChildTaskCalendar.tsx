@@ -38,11 +38,12 @@ type Props = {
     childName?: string | null
     childAvatar?: string | null
     isReadOnly?: boolean
+    onDaySelect?: (date: Date) => void
 }
 
 const EMOJI_ICONS = ['🧹', '🛏️', '🍽️', '🐶', '📚', '🦷', '🧺', '🪴']
 
-export default function WeeklyChildTaskCalendar({ childId, childName, childAvatar, isReadOnly = false }: Props) {
+export default function WeeklyChildTaskCalendar({ childId, childName, childAvatar, isReadOnly = false, onDaySelect }: Props) {
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 0 }))
     const [selectedDay, setSelectedDay] = useState<Date>(new Date())
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -79,6 +80,11 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
         const percentage = total === 0 ? 0 : Math.round((completed / total) * 100)
         return { total, completed, percentage }
     }, [tasks])
+
+    function handleSelectDay(day: Date) {
+        setSelectedDay(day)
+        onDaySelect?.(day)
+    }
 
     function navigateWeek(direction: 'prev' | 'next') {
         if (direction === 'prev') setCurrentWeekStart(prev => subWeeks(prev, 1))
@@ -184,9 +190,9 @@ export default function WeeklyChildTaskCalendar({ childId, childName, childAvata
                                 <motion.div
                                     key={day.toISOString()}
                                     layout
-                                    onClick={() => setSelectedDay(day)}
+                                    onClick={() => handleSelectDay(day)}
                                     onDoubleClick={() => {
-                                        setSelectedDay(day)
+                                        handleSelectDay(day)
                                         if (isReadOnly) setIsChildCreateModalOpen(true)
                                         else setIsCreateModalOpen(true)
                                     }}

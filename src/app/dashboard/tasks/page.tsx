@@ -5,13 +5,16 @@ import Link from 'next/link'
 import { createClient } from '@/utils/supabase/client'
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Plus, CalendarRange, FolderKanban } from 'lucide-react'
+import { Plus, CalendarRange, FolderKanban, LibraryBig } from 'lucide-react'
+import { format } from 'date-fns'
 import WeeklyChildTaskCalendar from '@/components/tasks/WeeklyChildTaskCalendar'
 import dynamic from 'next/dynamic'
 const CreateTaskModal = dynamic(() => import('@/components/tasks/CreateTaskModal'))
+const TaskBankPickerModal = dynamic(() => import('@/components/tasks/TaskBankPickerModal'))
 import { useUserPreferences } from '@/contexts/UserContext'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sortChildrenByAge } from '@/utils/childOrder'
+import type { MasterTaskTemplate } from '@/components/tasks/bank/TaskTemplateModal'
 
 type Profile = {
     id: string
@@ -25,6 +28,9 @@ type Profile = {
 export default function TasksPage() {
     const [selectedChildIdState, setSelectedChildIdState] = useState<string | null>(null)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
+    const [selectedTemplate, setSelectedTemplate] = useState<MasterTaskTemplate | null>(null)
+    const [selectedDay, setSelectedDay] = useState<Date>(new Date())
     const supabase = createClient()
     const { familyId } = useUserPreferences()
     const searchParams = useSearchParams()
@@ -49,6 +55,21 @@ export default function TasksPage() {
     const defaultChildId = match ? preselectedChildId : (children.length > 0 ? children[0].id : null)
     const selectedChildId = selectedChildIdState || defaultChildId
 
+    function handleOpenBankPicker() {
+        setSelectedTemplate(null)
+        setIsBankPickerOpen(true)
+    }
+
+    function handleTemplateSelected(template: MasterTaskTemplate) {
+        setSelectedTemplate(template)
+        setIsCreateModalOpen(true)
+    }
+
+    function handleCreateModalClose() {
+        setIsCreateModalOpen(false)
+        setSelectedTemplate(null)
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -72,13 +93,25 @@ export default function TasksPage() {
                         בנק משימות
                     </Link>
                     {selectedChildId && (
-                        <button
-                            onClick={() => setIsCreateModalOpen(true)}
-                            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-                        >
-                            <Plus size={18} />
-                            משימה חדשה
-                        </button>
+                        <>
+                            <button
+                                onClick={handleOpenBankPicker}
+                                className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-300 px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-50 transition-colors shadow-sm"
+                            >
+                                <LibraryBig size={16} />
+                                משימה חדשה מבנק המשימות
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setSelectedTemplate(null)
+                                    setIsCreateModalOpen(true)
+                                }}
+                                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                            >
+                                <Plus size={18} />
+                                משימה חדשה
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
@@ -120,17 +153,30 @@ export default function TasksPage() {
                             childName={children.find(c => c.id === selectedChildId)?.full_name}
                             childAvatar={children.find(c => c.id === selectedChildId)?.avatar_url}
                             key={selectedChildId} // Force re-render on switch
+                            onDaySelect={setSelectedDay}
                         />
                     )}
 
+                    {/* Bank Picker Modal */}
+                    {selectedChildId && (
+                        <TaskBankPickerModal
+                            isOpen={isBankPickerOpen}
+                            onClose={() => setIsBankPickerOpen(false)}
+                            onSelectTemplate={handleTemplateSelected}
+                        />
+                    )}
+
+                    {/* Create / Edit Task Modal */}
                     {selectedChildId && (
                         <CreateTaskModal
                             isOpen={isCreateModalOpen}
-                            onClose={() => setIsCreateModalOpen(false)}
+                            onClose={handleCreateModalClose}
                             childId={selectedChildId}
+                            initialDate={format(selectedDay, 'yyyy-MM-dd')}
+                            initialTemplate={selectedTemplate}
                             onSuccess={() => {
                                 queryClient.invalidateQueries({ queryKey: ["tasks", selectedChildId] })
-                                setIsCreateModalOpen(false)
+                                handleCreateModalClose()
                             }}
                         />
                     )}

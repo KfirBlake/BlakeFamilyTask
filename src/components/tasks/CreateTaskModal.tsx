@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { X, Star, Calendar, RefreshCw, Trash2 } from 'lucide-react'
+import type { MasterTaskTemplate } from '@/components/tasks/bank/TaskTemplateModal'
 import { format, addDays, addWeeks, addMonths, addYears, getDay, isBefore, isSameDay } from 'date-fns'
 import IconPicker from '../ui/IconPicker'
 import { useUserPreferences } from '@/contexts/UserContext'
@@ -25,9 +26,10 @@ type Props = {
     onSuccess: () => void
     initialDate?: string
     task?: Task | null
+    initialTemplate?: MasterTaskTemplate | null
 }
 
-export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, initialDate, task }: Props) {
+export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, initialDate, task, initialTemplate }: Props) {
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [stars, setStars] = useState(10)
@@ -59,6 +61,19 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
                 setSelectedIcon(task.icon_key)
                 // We don't populate recurrence form because editing only tweaks this instance
                 setIsRecurring(false)
+            } else if (initialTemplate) {
+                // Pre-fill from bank template
+                setTitle(initialTemplate.title)
+                setDescription(initialTemplate.description || '')
+                setStars(initialTemplate.default_stars)
+                setDueDate(initialDate || '')
+                setSelectedIcon(initialTemplate.icon_key || '📝')
+                setIsRecurring(false)
+                setFrequency('weekly')
+                setDaysOfWeek([])
+                setEndOption('count')
+                setEndCount(10)
+                setEndDate('')
             } else {
                 // Create mode - reset
                 setTitle('')
@@ -74,7 +89,7 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
                 setEndDate('')
             }
         }
-    }, [isOpen, task, initialDate])
+    }, [isOpen, task, initialDate, initialTemplate])
 
     const supabase = createClient()
     const { userId, familyId } = useUserPreferences()
@@ -396,7 +411,7 @@ export default function CreateTaskModal({ isOpen, onClose, childId, onSuccess, i
                 )}
 
                 <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-                    <h3 className="font-bold text-gray-900">{task ? 'עריכת משימה' : 'משימה חדשה'}</h3>
+                    <h3 className="font-bold text-gray-900">{task ? 'עריכת משימה' : initialTemplate ? 'משימה חדשה מהבנק' : 'משימה חדשה'}</h3>
                     <div className="flex items-center gap-1">
                         {task && (
                             <button
